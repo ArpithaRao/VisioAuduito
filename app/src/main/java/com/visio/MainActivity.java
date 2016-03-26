@@ -17,7 +17,7 @@ public class MainActivity extends AppCompatActivity {
         IndoorsSurfaceFactory.Builder surfaceBuilder = new IndoorsSurfaceFactory.Builder();
         indoorsBuilder.setContext(this);
 
-        indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6- 79f 1e0948 aab");
+        indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6-79f1e0948aab");
         indoorsBuilder.setBuildingId((long) 680800560);
         surfaceBuilder.setIndoorsBuilder(indoorsBuilder);
 
