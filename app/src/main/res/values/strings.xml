@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Visio</string>
+    <string name="tag">BuildingTag</string>
 </resources>
