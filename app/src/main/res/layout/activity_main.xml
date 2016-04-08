@@ -17,11 +17,9 @@
         android:layout_alignParentEnd="true"
         android:text="Listen" />
 
-    <ListView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/listView"
-        android:layout_below="@+id/listen"
-        android:layout_centerHorizontal="true" />
+    <TextView
+        android:id="@+id/SpeechOp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
 </RelativeLayout>
