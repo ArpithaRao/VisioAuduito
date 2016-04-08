@@ -103,10 +103,12 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsFragment.getIndoors().getZones(building, new ZoneCallback() {
             @Override
             public void setZones(ArrayList<Zone> arrayList) {
-                Log.d(TAG,arrayList.toString());
-                (new VoiceCommandInput(thisObject)).takeSpeechInput();
+//                Log.d(TAG,arrayList.toString());
+
             }
         });
+
+
 
 
     }
