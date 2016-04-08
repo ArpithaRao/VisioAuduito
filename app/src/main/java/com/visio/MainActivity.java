@@ -79,14 +79,14 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void connected() {
-        Indoors localIndoors=MainActivity.indoorsFragment.getIndoors();
 
-        Log.d("MainActivity",(indoorsFragment.getZones().toString()));
+
+
 }
 
     @Override
     public void onError (IndoorsException e){
-        Log.d(TAG,"OnError");
+
     }
 
     public MainActivity() {
@@ -103,7 +103,12 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsFragment.getIndoors().getZones(building, new ZoneCallback() {
             @Override
             public void setZones(ArrayList<Zone> arrayList) {
-//                Log.d(TAG,arrayList.toString());
+                Zone temp = arrayList.get(0);
+                List<Coordinate> tempCordinate = temp.getZonePoints();
+                Log.d(TAG,temp.getName());
+                for(Coordinate tempVal : tempCordinate){
+                    Log.d(TAG,tempVal.x+","+tempVal.y);
+                }
 
             }
         });

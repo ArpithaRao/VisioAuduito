@@ -37,7 +37,7 @@ public class LauncherActivity
         mMessageListener = new MessageListener() {
             @Override
             public void onFound(Message message) {
-                Nearby.Messages.unsubscribe(mGoogleApiClient,mMessageListener);
+                //Nearby.Messages.unsubscribe(mGoogleApiClient,mMessageListener);
                 Intent mainIntentLauncher = new Intent(object, com.visio.MainActivity.class);
                 mainIntentLauncher.putExtra(com.visio.MainActivity.extraName,new String(message.getContent()));
                 mainIntentLauncher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
