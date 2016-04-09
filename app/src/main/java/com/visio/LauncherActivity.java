@@ -8,6 +8,7 @@ import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -135,4 +136,6 @@ public class LauncherActivity
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         Log.d(TAG,"Connection Failed");
     }
+
+   
 }

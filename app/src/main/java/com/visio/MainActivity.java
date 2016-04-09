@@ -9,6 +9,7 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,8 +27,10 @@ import com.customlbs.library.model.Building;
 import com.customlbs.library.model.Zone;
 import com.customlbs.library.util.IndoorsCoordinateUtil;
 import com.customlbs.shared.Coordinate;
+import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
+import com.customlbs.surface.library.IndoorsSurfaceInteractionCallback;
 import com.customlbs.surface.library.SurfaceState;
 
 import java.lang.reflect.Array;
@@ -38,7 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 
 
-public class MainActivity extends FragmentActivity implements  IndoorsServiceCallback, IndoorsLocationListener {
+public class MainActivity extends FragmentActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
     public static String TAG = MainActivity.class.getSimpleName();
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
@@ -80,7 +83,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsSurface.setIndoorsBuilder(indoorsBuilder);
 
         indoorsFragment = indoorsSurface.build();
-
+        indoorsFragment.registerOnSurfaceClickListener(this);
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.add(android.R.id.content, indoorsFragment, "indoors");
         transaction.commit();
@@ -196,6 +199,26 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
+    }
+
+
+    @Override
+    public void onClick(Coordinate coordinate) {
+        VoiceCommandInput inputReference = new VoiceCommandInput(this);
+        inputReference.takeSpeechInput();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==MainActivity.REQ_CODE_SPEECH_INPUT){
+            if(resultCode==RESULT_OK){
+                if(data!=null){
+                    List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    Log.d(TAG,inputCommand.get(0));
+                }
+            }
+        }
     }
 }
 
