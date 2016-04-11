@@ -2,8 +2,10 @@ package com.visio;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.CornerPathEffect;
+import android.nfc.Tag;
 import android.speech.RecognizerIntent;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
@@ -39,6 +41,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+
+import static android.provider.Settings.Global.getString;
 
 
 public class MainActivity extends FragmentActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
@@ -122,7 +126,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
             public void setZones(ArrayList<Zone> arrayList) {
                 MainActivity.zonesList = arrayList;
                 MainActivity.zoneEntrance = getZonesEntrance(MainActivity.zonesList);
-                if(currentUserCoordinates!=null&&!initializedZonesAndPosition){
+                if (currentUserCoordinates != null && !initializedZonesAndPosition) {
                     initializedZonesAndPosition = true;
                 }
             }
@@ -157,7 +161,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
     }
 
     private void notifyAllObservers() {
-        for(RouterInterface localInterfaceObject:this.registeredObjects){
+        for(RouterInterface localInterfaceObject:MainActivity.registeredObjects){
             localInterfaceObject.getDistance(currentUserCoordinates,currentUserOrientation);
         }
     }
@@ -177,7 +181,9 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void enteredZones(List<Zone> list) {
+        if(inRoutingMode){
 
+        }
     }
 
     @Override
@@ -209,7 +215,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         if(initializedZonesAndPosition) {
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
-            mInputVoiceCommand.takeSpeechInput();
+            mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
         }
     }
 
@@ -221,6 +227,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
+
                 }
             }
         }
@@ -234,10 +241,11 @@ class VoiceCommandInput{
         this.callingActivity = callingActivity;
     }
 
-    public void takeSpeechInput(){
+    public void takeSpeechInput(int promptID){
+        String prompt= callingActivity.getApplicationContext().getString(promptID);
         Intent intentHandle = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intentHandle.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intentHandle.putExtra(RecognizerIntent.EXTRA_PROMPT,"Where would you like to go?");
+        intentHandle.putExtra(RecognizerIntent.EXTRA_PROMPT,prompt);
         try{
             callingActivity.startActivityForResult(intentHandle,MainActivity.REQ_CODE_SPEECH_INPUT);
         }catch(ActivityNotFoundException e){
@@ -247,17 +255,17 @@ class VoiceCommandInput{
 
     public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
-        Coordinate destinationCoordinate = null;
+        Coordinate destinationCoordinate;
         if(MainActivity.zoneEntrance.containsKey(zoneId)){
             destinationCoordinate = MainActivity.zoneEntrance.get(zoneId);
             MainActivity.indoorsFragment.getIndoors().getRouteAToB(sourceCoordinate, destinationCoordinate, new RoutingCallback() {
                 @Override
+                @SuppressWarnings("deprication")
                 public void setRoute(ArrayList<Coordinate> arrayList) {
                     MainActivity.indoorsFragment.getIndoors().enableRouteSnapping(arrayList);
                     MainActivity.indoorsFragment.getSurfaceState().setRoutingPath(arrayList);
                     MainActivity.indoorsFragment.updateSurface();
                     MainActivity.registerForNextChange(new RouterImplementation(arrayList));
-
                 }
 
                 @Override
@@ -265,6 +273,8 @@ class VoiceCommandInput{
 
                 }
             });
+        }else{
+            takeSpeechInput(R.string.couldNotFindLocation);
         }
 
     }
@@ -309,16 +319,17 @@ class RouterImplementation implements RouterInterface{
     }
 
     private String getTurnDirection(double direction) {
+        String directionInstruction=null;
         if(direction==0){
-            return(new String("Straight").toUpperCase());
+            directionInstruction="Straight".toUpperCase();
         }else if(direction<0&&Math.abs(direction)<=120){
-            return(new String("Left").toUpperCase());
+            directionInstruction="Left".toUpperCase();
         }else if(direction>0&&Math.abs(direction)<=120){
-            return(new String("Right").toUpperCase());
+            directionInstruction="Right".toUpperCase();
         }else if(Math.abs(direction)>120){
-            return(new String("Around").toUpperCase());
+            directionInstruction="Around".toUpperCase();
         }
-        return null;
+        return directionInstruction;
     }
 
     private double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
@@ -332,6 +343,9 @@ class RouterImplementation implements RouterInterface{
 
     @Override
     public void getDistance(Coordinate currentPosition, float currentOrientation) {
+
+        Log.d("Coordinate",expectedCoordinate.toString());
+
         int dx = Math.abs(currentPosition.x-expectedCoordinate.x);
         int dy = Math.abs(currentPosition.y-expectedCoordinate.y);
 

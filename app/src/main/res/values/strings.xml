@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Visio</string>
     <string name="tag">BuildingTag</string>
+    <string name="greeting">Hello !</string>
+    <string name="initiateNavigationPrompt">Where would you like to go ?</string>
+    <string name="couldNotFindLocation">We couldn\'t find a location with that name. Try Again.</string>
+    <string name="initiatePrompt">What would you like to do ?</string>
 </resources>
