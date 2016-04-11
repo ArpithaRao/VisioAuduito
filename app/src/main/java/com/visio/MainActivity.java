@@ -66,6 +66,8 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
     // only when in routing mode.
 
     public boolean initializedZonesAndPosition = false; //This needs to be true before we do anything/
+
+    public VoiceCommandInput mInputVoiceCommand;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -133,7 +135,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
             Coordinate newCoordinate = new Coordinate((eachZone.getZonePoints().get(0).x+eachZone.getZonePoints().get(1).x)/2,
                     (eachZone.getZonePoints().get(0).y+eachZone.getZonePoints().get(1).y)/2,
                     eachZone.getZonePoints().get(0).z);
-            mapZoneToCoordinate.put(eachZone.getName(),newCoordinate);
+            mapZoneToCoordinate.put(eachZone.getName().toUpperCase(),newCoordinate);
         }
         return mapZoneToCoordinate;
     }
@@ -204,8 +206,11 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void onClick(Coordinate coordinate) {
-        VoiceCommandInput inputReference = new VoiceCommandInput(this);
-        inputReference.takeSpeechInput();
+        if(initializedZonesAndPosition) {
+            if (mInputVoiceCommand == null)
+                mInputVoiceCommand = new VoiceCommandInput(this);
+            mInputVoiceCommand.takeSpeechInput();
+        }
     }
 
     @Override
@@ -215,7 +220,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
             if(resultCode==RESULT_OK){
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    Log.d(TAG,inputCommand.get(0));
+                    mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
                 }
             }
         }
@@ -240,7 +245,7 @@ class VoiceCommandInput{
         }
     }
 
-    private void routeToZone(String zoneId){
+    public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
         Coordinate destinationCoordinate = null;
         if(MainActivity.zoneEntrance.containsKey(zoneId)){
@@ -285,11 +290,12 @@ class RouterImplementation implements RouterInterface{
             Toast.makeText(callingActivity, "There is no route defined", Toast.LENGTH_SHORT).show();
             throw new IllegalStateException("Route not initialized yet");
         }
+        firstRegister();
     }
 
     private void firstRegister(){
         this.expectedCoordinate = iterCoordinate.next();
-        MainActivity.registerForNextChange(this);
+
 
     }
 
