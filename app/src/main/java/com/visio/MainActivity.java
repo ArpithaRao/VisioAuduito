@@ -5,15 +5,15 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
-import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.widget.Toast;
+import android.view.Menu;
+import android.view.MenuItem;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -34,10 +34,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import static android.provider.Settings.Global.getString;
 
-
-public class MainActivity extends FragmentActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
+public class MainActivity extends AppCompatActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
     public static String TAG = MainActivity.class.getSimpleName();
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
@@ -65,6 +63,24 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     public VoiceCommandInput mInputVoiceCommand;
     public String mDestinationZone;
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main,menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case R.id.action_main:
+                Intent intent = new Intent(this,SettingsActivity.class);
+                startActivity(intent);
+                break;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,6 +94,10 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6-79f1e0948aab");
         indoorsBuilder.setBuildingId(Long.parseLong(getIntent().getStringExtra(extraName)));
 
+        Toolbar myToolbar = (Toolbar) findViewById(R.id.application_toolbar);
+        setSupportActionBar(myToolbar);
+
+
 
         IndoorsSurfaceFactory.Builder indoorsSurface = new IndoorsSurfaceFactory.Builder();
         indoorsSurface.setIndoorsBuilder(indoorsBuilder);
@@ -87,7 +107,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        transaction.add(android.R.id.content, indoorsFragment, "indoors");
+        transaction.replace(android.R.id.content, indoorsFragment, "indoors");
         transaction.commit();
     }
 
@@ -180,8 +200,14 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void enteredZones(List<Zone> list) {
+
+        List<String> stringList = new ArrayList<>();
+        for(Zone zone : list){
+            stringList.add(zone.getName());
+        }
+
         if(inRoutingMode) {
-            if(list.contains(mDestinationZone)){
+            if(stringList.contains( mDestinationZone)){
                 inRoutingMode=false;
                 SpeechEngine.getInstance().speak("Destination",SpeechEngine.QUEUE_ADD,null);
             }
@@ -324,18 +350,14 @@ class SpeechEngine extends TextToSpeech {
     }
 }
 
-class RouterImplementation implements RouterInterface{
-    private List<Coordinate> routerCoordinate;
-    private Iterator<Coordinate> iterCoordinate;
-    private Activity callingActivity;
-    Coordinate expectedCoordinate = null;
 
-    private String getStringFromResource(int resourceID){
-        if(callingActivity!=null)
-            return callingActivity.getApplicationContext().getString(resourceID);
-        else
-            return "";
-    }
+class RouterImplementation implements RouterInterface{
+    public List<Coordinate> routerCoordinate;
+    public Iterator<Coordinate> iterCoordinate;
+    //public Activity callingActivity;
+    Coordinate expectedCoordinate = null;
+    Coordinate lastCoordinate = null;
+
 
     public RouterImplementation(List<Coordinate> routerCoordinate) {
         this.routerCoordinate = routerCoordinate;
@@ -347,44 +369,73 @@ class RouterImplementation implements RouterInterface{
         firstRegister();
     }
 
-    private void firstRegister(){
-        if(iterCoordinate.hasNext())
+    public void firstRegister(){
+        if(iterCoordinate.hasNext()) {
             this.expectedCoordinate = iterCoordinate.next();
+
+        }
+        int size = this.routerCoordinate.size() - 1;
+        this.lastCoordinate = this.routerCoordinate.get(size);
     }
 
-    @SuppressLint("NewApi")
+
     public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation) {
 
         if(iterCoordinate.hasNext()) {
+
             this.expectedCoordinate = iterCoordinate.next();
+            if(this.expectedCoordinate.x == this.lastCoordinate.x &&
+                    this.expectedCoordinate.y == this.lastCoordinate.y){
+                double lastDirection = getDirection(userCurrentPosition,lastCoordinate,userCurrentOrientation);
+                String turnDirection = getTurnDirection(lastDirection);
+                System.out.println(turnDirection==null?"Null":turnDirection);
+
+
+            }
             double direction = getDirection(userCurrentPosition, expectedCoordinate, userCurrentOrientation);
             String turnDirection = getTurnDirection(direction);
-            if (turnDirection != null) {
-                Log.d("String",turnDirection);
-                SpeechEngine.getInstance().speak(turnDirection, TextToSpeech.QUEUE_ADD, null, "Direction");
-            }
+            System.out.println(turnDirection==null?"Null":enhanceDirection(direction,turnDirection));
         }
     }
 
-    private String getTurnDirection(double direction) {
-        String directionInstruction=null;
-        if(direction==0){
-            directionInstruction=getStringFromResource(R.string.continueStraight).toUpperCase();
-        }else if(direction<0&&Math.abs(direction)<=120){
-            directionInstruction=getStringFromResource(R.string.turnLeft).toUpperCase();
-        }else if(direction>0&&Math.abs(direction)<=120){
-            directionInstruction=getStringFromResource(R.string.turnRight).toUpperCase();
-        }else if(Math.abs(direction)>120){
-            directionInstruction=getStringFromResource(R.string.turnAround).toUpperCase();
+    public String enhanceDirection(double direction, String turnDirection){
+        float modDirection = (float) Math.abs(direction);
+        if(modDirection<22.49f){
+            return "GO STRAIGHT";
+        }else if(modDirection>=22.50f && modDirection <= 44.9f){
+            return "TAKE SLIGHT " + turnDirection + " TURN";
+        }else if(modDirection>=45f && modDirection<=134.9f){
+            return "TAKE" + turnDirection + "TURN";
+        }else if(modDirection>=135.0f && modDirection <=147.49f){
+            return "TAKE HARD " + turnDirection + " TURN";
+        }else{
+            return "TURN BACK";
         }
-        return directionInstruction;
+    }
+    public String getTurnDirection(double direction) {
+        boolean positive;
+        boolean invert = Math.abs(direction)>180?true:false;
+        double actualTurnAngle = direction;
+        if(invert){
+            double howMuchMoreThan180 = direction - 180;
+            actualTurnAngle = 180 - howMuchMoreThan180;
+
+            int sign = (int)(direction / (Math.abs(direction)));
+            actualTurnAngle = (sign * -1) * actualTurnAngle;
+        }
+
+        positive = actualTurnAngle>0?true:false;
+
+        return positive?"LEFT":"RIGHT";
+
     }
 
-    private double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
-        int dx = userCurrentPosition.x - expectedCoordinate.x;
-        int dy = userCurrentPosition.y - expectedCoordinate.y;
-        double bearing = (180/Math.PI) * Math.atan2(dy,dx);
-        bearing = 360-bearing;
+    public double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
+        int dx = expectedCoordinate.x - userCurrentPosition.x ;
+        int dy = expectedCoordinate.y - userCurrentPosition.y ;
+        double bearing = (180/Math.PI) * Math.atan2(dx,dy);
+        bearing = bearing>0?bearing:360-Math.abs(bearing);
+
         return (userCurrentOrientation-bearing);
 
     }
@@ -392,7 +443,7 @@ class RouterImplementation implements RouterInterface{
     @Override
     public void getDistance(Coordinate currentPosition, float currentOrientation) {
 
-        Log.d("Coordinate",expectedCoordinate.toString());
+
 
         int dx = Math.abs(currentPosition.x-expectedCoordinate.x);
         int dy = Math.abs(currentPosition.y-expectedCoordinate.y);
@@ -401,4 +452,6 @@ class RouterImplementation implements RouterInterface{
             sayNextRoute(currentPosition,currentOrientation);
         }
     }
+
+
 }

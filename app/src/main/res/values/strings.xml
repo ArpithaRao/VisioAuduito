@@ -16,6 +16,7 @@
     <string name="Gender_men">Men</string>
     <string name="Gender_Women">Women</string>
     <string name="Gender_Unisex">Unisex</string>
+    <string name="action_main">Visio</string>
 
 
 </resources>

@@ -49,12 +49,10 @@ public class LauncherActivity
                 startActivity(mainIntentLauncher);
             }
         };
-        //messageSubscribe();
 
-        ///Intent intent = new Intent(this,SettingsActivity.class);
-        //startActivity(intent);
-
-
+        messageSubscribe();
+        /*Intent  intent=new Intent(this,com.visio.SettingsActivity.class);
+        startActivity(intent);*/
     }
 
     private void messageSubscribe(){
