@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
-            case R.id.action_main:
+            case R.id.action_settings:
                 Intent intent = new Intent(this,SettingsActivity.class);
                 startActivity(intent);
                 break;
@@ -107,7 +107,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-        transaction.replace(android.R.id.content, indoorsFragment, "indoors");
+        transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
         transaction.commit();
     }
 
@@ -243,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void onClick(Coordinate coordinate) {
         if(initializedZonesAndPosition) {
             SpeechEngine speechEngine = SpeechEngine.getInstance();
-            speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
+         //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
             mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
@@ -452,6 +452,7 @@ class RouterImplementation implements RouterInterface{
             sayNextRoute(currentPosition,currentOrientation);
         }
     }
+
 
 
 }
