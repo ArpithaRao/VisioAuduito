@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -31,6 +32,9 @@ public class LauncherActivity
         super.onCreate(savedInstanceState);
         object = this;
         setContentView(R.layout.activity_main);
+        Toolbar myToolbar = (Toolbar) findViewById(R.id.application_toolbar);
+        setSupportActionBar(myToolbar);
+
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Nearby.MESSAGES_API)
                 .addConnectionCallbacks(this)
@@ -45,7 +49,12 @@ public class LauncherActivity
                 startActivity(mainIntentLauncher);
             }
         };
-        messageSubscribe();
+        //messageSubscribe();
+
+        ///Intent intent = new Intent(this,SettingsActivity.class);
+        //startActivity(intent);
+
+
     }
 
     private void messageSubscribe(){

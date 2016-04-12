@@ -1,42 +1,34 @@
 package com.visio;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
-import android.graphics.CornerPathEffect;
-import android.nfc.Tag;
+import android.os.Build;
+import android.os.Bundle;
 import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentTransaction;
-import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.customlbs.library.Indoors;
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
-import com.customlbs.library.IndoorsLocationAdapter;
 import com.customlbs.library.IndoorsLocationListener;
 import com.customlbs.library.callbacks.IndoorsServiceCallback;
 import com.customlbs.library.callbacks.LoadingBuildingStatus;
-import com.customlbs.library.callbacks.OnlineBuildingCallback;
 import com.customlbs.library.callbacks.RoutingCallback;
 import com.customlbs.library.callbacks.ZoneCallback;
 import com.customlbs.library.model.Building;
 import com.customlbs.library.model.Zone;
-import com.customlbs.library.util.IndoorsCoordinateUtil;
 import com.customlbs.shared.Coordinate;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
-import com.customlbs.surface.library.IndoorsSurfaceInteractionCallback;
-import com.customlbs.surface.library.SurfaceState;
 
-import java.lang.reflect.Array;
-import java.nio.charset.MalformedInputException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -72,6 +64,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
     public boolean initializedZonesAndPosition = false; //This needs to be true before we do anything/
 
     public VoiceCommandInput mInputVoiceCommand;
+    public String mDestinationZone;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -81,12 +74,15 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
         indoorsBuilder.setUserInteractionListener(this);
+        indoorsBuilder.setEvaluationMode(false);
         indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6-79f1e0948aab");
         indoorsBuilder.setBuildingId(Long.parseLong(getIntent().getStringExtra(extraName)));
-        indoorsBuilder.setEvaluationMode(false);
+
 
         IndoorsSurfaceFactory.Builder indoorsSurface = new IndoorsSurfaceFactory.Builder();
         indoorsSurface.setIndoorsBuilder(indoorsBuilder);
+
+        SpeechEngine.createInstance(this);
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
@@ -151,6 +147,9 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void positionUpdated(Coordinate coordinate, int i) {
+
+        Log.d(TAG,coordinate.toString());
+
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
         if(zonesList!=null&&!initializedZonesAndPosition){
@@ -181,8 +180,11 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
 
     @Override
     public void enteredZones(List<Zone> list) {
-        if(inRoutingMode){
-
+        if(inRoutingMode) {
+            if(list.contains(mDestinationZone)){
+                inRoutingMode=false;
+                SpeechEngine.getInstance().speak("Destination",SpeechEngine.QUEUE_ADD,null);
+            }
         }
     }
 
@@ -210,15 +212,17 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
     }
 
 
+    @SuppressLint("NewApi")
     @Override
     public void onClick(Coordinate coordinate) {
         if(initializedZonesAndPosition) {
+            SpeechEngine speechEngine = SpeechEngine.getInstance();
+            speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
             mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
         }
     }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -226,6 +230,7 @@ public class MainActivity extends FragmentActivity implements  IndoorsServiceCal
             if(resultCode==RESULT_OK){
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    mDestinationZone=inputCommand.get(0);
                     mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
                 }
@@ -242,22 +247,24 @@ class VoiceCommandInput{
     }
 
     public void takeSpeechInput(int promptID){
-        String prompt= callingActivity.getApplicationContext().getString(promptID);
+        String prompt="Could not initialize";
+
         Intent intentHandle = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intentHandle.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intentHandle.putExtra(RecognizerIntent.EXTRA_PROMPT,prompt);
         try{
             callingActivity.startActivityForResult(intentHandle,MainActivity.REQ_CODE_SPEECH_INPUT);
+            prompt = callingActivity.getApplicationContext().getString(promptID);
         }catch(ActivityNotFoundException e){
-            Toast.makeText(callingActivity,"Speech Input not supported on this device",Toast.LENGTH_LONG).show();
+            // Toast.makeText(callingActivity,"Speech Input not supported on this device",Toast.LENGTH_LONG).show();
         }
     }
 
     public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
         Coordinate destinationCoordinate;
-        if(MainActivity.zoneEntrance.containsKey(zoneId)){
-            destinationCoordinate = MainActivity.zoneEntrance.get(zoneId);
+        if(MainActivity.zoneEntrance.containsKey(zoneId.toUpperCase())){
+            destinationCoordinate = MainActivity.zoneEntrance.get(zoneId.toUpperCase());
             MainActivity.indoorsFragment.getIndoors().getRouteAToB(sourceCoordinate, destinationCoordinate, new RoutingCallback() {
                 @Override
                 @SuppressWarnings("deprication")
@@ -266,6 +273,7 @@ class VoiceCommandInput{
                     MainActivity.indoorsFragment.getSurfaceState().setRoutingPath(arrayList);
                     MainActivity.indoorsFragment.updateSurface();
                     MainActivity.registerForNextChange(new RouterImplementation(arrayList));
+                    Log.d("Route",arrayList.toString());
                 }
 
                 @Override
@@ -273,19 +281,47 @@ class VoiceCommandInput{
 
                 }
             });
-        }else{
+        }else
             takeSpeechInput(R.string.couldNotFindLocation);
-        }
+
 
     }
+
+
 }
 
 interface RouterInterface{
 
-
     int THRESHOLD = 1000;
-
     void getDistance(Coordinate currentPosition, float currentOrientation);
+}
+
+class SpeechEngine extends TextToSpeech {
+
+    private static SpeechEngine _instance = null;
+
+    private SpeechEngine(Context context, OnInitListener listener) {
+        super(context, listener);
+    }
+
+    public static SpeechEngine getInstance(){
+        return _instance;
+    }
+
+
+
+    public static SpeechEngine createInstance(Context context){
+        OnInitListener listener = new OnInitListener() {
+            @Override
+            public void onInit(int status) {
+
+            }
+        };
+        if(_instance==null)
+            _instance= new SpeechEngine(context,listener);
+
+        return _instance;
+    }
 }
 
 class RouterImplementation implements RouterInterface{
@@ -293,41 +329,53 @@ class RouterImplementation implements RouterInterface{
     private Iterator<Coordinate> iterCoordinate;
     private Activity callingActivity;
     Coordinate expectedCoordinate = null;
+
+    private String getStringFromResource(int resourceID){
+        if(callingActivity!=null)
+            return callingActivity.getApplicationContext().getString(resourceID);
+        else
+            return "";
+    }
+
     public RouterImplementation(List<Coordinate> routerCoordinate) {
         this.routerCoordinate = routerCoordinate;
         iterCoordinate = routerCoordinate.listIterator();
         if(!iterCoordinate.hasNext()){
-            Toast.makeText(callingActivity, "There is no route defined", Toast.LENGTH_SHORT).show();
+            //   Toast.makeText(callingActivity, "There is no route defined", Toast.LENGTH_SHORT).show();
             throw new IllegalStateException("Route not initialized yet");
         }
         firstRegister();
     }
 
     private void firstRegister(){
-        this.expectedCoordinate = iterCoordinate.next();
-
-
+        if(iterCoordinate.hasNext())
+            this.expectedCoordinate = iterCoordinate.next();
     }
 
+    @SuppressLint("NewApi")
     public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation) {
-        this.expectedCoordinate = iterCoordinate.next();
-        double direction = getDirection(userCurrentPosition,expectedCoordinate,userCurrentOrientation);
-        String turnDirection = getTurnDirection(direction);
-        if(turnDirection!=null){
-            Toast.makeText(callingActivity,turnDirection,Toast.LENGTH_LONG).show();
+
+        if(iterCoordinate.hasNext()) {
+            this.expectedCoordinate = iterCoordinate.next();
+            double direction = getDirection(userCurrentPosition, expectedCoordinate, userCurrentOrientation);
+            String turnDirection = getTurnDirection(direction);
+            if (turnDirection != null) {
+                Log.d("String",turnDirection);
+                SpeechEngine.getInstance().speak(turnDirection, TextToSpeech.QUEUE_ADD, null, "Direction");
+            }
         }
     }
 
     private String getTurnDirection(double direction) {
         String directionInstruction=null;
         if(direction==0){
-            directionInstruction="Straight".toUpperCase();
+            directionInstruction=getStringFromResource(R.string.continueStraight).toUpperCase();
         }else if(direction<0&&Math.abs(direction)<=120){
-            directionInstruction="Left".toUpperCase();
+            directionInstruction=getStringFromResource(R.string.turnLeft).toUpperCase();
         }else if(direction>0&&Math.abs(direction)<=120){
-            directionInstruction="Right".toUpperCase();
+            directionInstruction=getStringFromResource(R.string.turnRight).toUpperCase();
         }else if(Math.abs(direction)>120){
-            directionInstruction="Around".toUpperCase();
+            directionInstruction=getStringFromResource(R.string.turnAround).toUpperCase();
         }
         return directionInstruction;
     }
