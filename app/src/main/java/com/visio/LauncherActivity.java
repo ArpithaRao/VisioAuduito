@@ -143,6 +143,4 @@ public class LauncherActivity
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         Log.d(TAG,"Connection Failed");
     }
-
-   
 }
