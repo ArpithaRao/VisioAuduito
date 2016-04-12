@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static List<Zone> zonesList;
     public static HashMap<String,Coordinate> zoneEntrance;
 
-    private static boolean inRoutingMode = false;
+    public static boolean inRoutingMode = false;
     private static List<RouterInterface> registeredObjects = new ArrayList<RouterInterface>(); //These objects need to be notified
     //in case of user change of position
     //The whole loop will be controlled
@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         indoorsBuilder.setPassiveServiceCallback(this);
         indoorsBuilder.setUserInteractionListener(this);
         indoorsBuilder.setEvaluationMode(false);
+
         indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6-79f1e0948aab");
         indoorsBuilder.setBuildingId(Long.parseLong(getIntent().getStringExtra(extraName)));
 
@@ -103,6 +104,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         indoorsSurface.setIndoorsBuilder(indoorsBuilder);
 
         SpeechEngine.createInstance(this);
+
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
@@ -280,7 +282,7 @@ class VoiceCommandInput{
         intentHandle.putExtra(RecognizerIntent.EXTRA_PROMPT,prompt);
         try{
             callingActivity.startActivityForResult(intentHandle,MainActivity.REQ_CODE_SPEECH_INPUT);
-            prompt = callingActivity.getApplicationContext().getString(promptID);
+         //   prompt = callingActivity.getApplicationContext().getString(promptID);
         }catch(ActivityNotFoundException e){
             // Toast.makeText(callingActivity,"Speech Input not supported on this device",Toast.LENGTH_LONG).show();
         }
@@ -297,6 +299,7 @@ class VoiceCommandInput{
                 public void setRoute(ArrayList<Coordinate> arrayList) {
                     MainActivity.indoorsFragment.getIndoors().enableRouteSnapping(arrayList);
                     MainActivity.indoorsFragment.getSurfaceState().setRoutingPath(arrayList);
+                    MainActivity.indoorsFragment.getSurfaceState().orientedNaviArrow = true;
                     MainActivity.indoorsFragment.updateSurface();
                     MainActivity.registerForNextChange(new RouterImplementation(arrayList));
                     Log.d("Route",arrayList.toString());
@@ -355,47 +358,45 @@ class RouterImplementation implements RouterInterface{
     public List<Coordinate> routerCoordinate;
     public Iterator<Coordinate> iterCoordinate;
     //public Activity callingActivity;
-    Coordinate expectedCoordinate = null;
-    Coordinate lastCoordinate = null;
+    Coordinate nextCoordinate = null;
+    int i = 0;
+
 
 
     public RouterImplementation(List<Coordinate> routerCoordinate) {
         this.routerCoordinate = routerCoordinate;
-        iterCoordinate = routerCoordinate.listIterator();
-        if(!iterCoordinate.hasNext()){
-            //   Toast.makeText(callingActivity, "There is no route defined", Toast.LENGTH_SHORT).show();
-            throw new IllegalStateException("Route not initialized yet");
-        }
+
         firstRegister();
     }
 
     public void firstRegister(){
-        if(iterCoordinate.hasNext()) {
-            this.expectedCoordinate = iterCoordinate.next();
+        setNextCoordinate();
 
-        }
-        int size = this.routerCoordinate.size() - 1;
-        this.lastCoordinate = this.routerCoordinate.get(size);
+
+    }
+
+    private void setNextCoordinate() {
+        nextCoordinate = routerCoordinate.get(i);
+        routerCoordinate.remove(i);
     }
 
 
     public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation) {
 
-        if(iterCoordinate.hasNext()) {
 
-            this.expectedCoordinate = iterCoordinate.next();
-            if(this.expectedCoordinate.x == this.lastCoordinate.x &&
-                    this.expectedCoordinate.y == this.lastCoordinate.y){
-                double lastDirection = getDirection(userCurrentPosition,lastCoordinate,userCurrentOrientation);
-                String turnDirection = getTurnDirection(lastDirection);
-                System.out.println(turnDirection==null?"Null":turnDirection);
-
-
+            Coordinate currentCoordinate = this.nextCoordinate;
+            setNextCoordinate();
+            if(routerCoordinate.size()>1) {
+                double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
+                String turnDirection = getTurnDirection(direction);
+                Log.d(MainActivity.TAG+" route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
+            }else{
+                double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
+                String turnDirection = getTurnDirection(direction);
+                Log.d(MainActivity.TAG + " route","Your destination is on your "+turnDirection);
+                MainActivity.inRoutingMode = false;
             }
-            double direction = getDirection(userCurrentPosition, expectedCoordinate, userCurrentOrientation);
-            String turnDirection = getTurnDirection(direction);
-            System.out.println(turnDirection==null?"Null":enhanceDirection(direction,turnDirection));
-        }
+
     }
 
     public String enhanceDirection(double direction, String turnDirection){
@@ -431,8 +432,8 @@ class RouterImplementation implements RouterInterface{
     }
 
     public double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
-        int dx = expectedCoordinate.x - userCurrentPosition.x ;
-        int dy = expectedCoordinate.y - userCurrentPosition.y ;
+        int dx = nextCoordinate.x - userCurrentPosition.x ;
+        int dy = nextCoordinate.y - userCurrentPosition.y ;
         double bearing = (180/Math.PI) * Math.atan2(dx,dy);
         bearing = bearing>0?bearing:360-Math.abs(bearing);
 
@@ -442,13 +443,15 @@ class RouterImplementation implements RouterInterface{
 
     @Override
     public void getDistance(Coordinate currentPosition, float currentOrientation) {
-
-
-
-        int dx = Math.abs(currentPosition.x-expectedCoordinate.x);
-        int dy = Math.abs(currentPosition.y-expectedCoordinate.y);
+        if(this.routerCoordinate.size()<=0){
+            MainActivity.inRoutingMode = false;
+            return;
+        }
+        int dx = Math.abs(currentPosition.x- nextCoordinate.x);
+        int dy = Math.abs(currentPosition.y- nextCoordinate.y);
 
         if(Math.sqrt(dy-dx)<=THRESHOLD){
+
             sayNextRoute(currentPosition,currentOrientation);
         }
     }
