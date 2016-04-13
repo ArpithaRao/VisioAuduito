@@ -78,8 +78,8 @@ public class SettingsActivity extends AppCompatActivity implements SeekBar.OnSee
             editor.commit();
 
         }else if(seekBar.getTag().equals("threshold_text")) {
-            progress=progress/250;
-            progress =progress*250;
+            progress=progress/25;
+            progress =progress*25;
             threshold_text.setText(String.valueOf(progress));
             editor.putInt("threshold",progress);
             editor.commit();

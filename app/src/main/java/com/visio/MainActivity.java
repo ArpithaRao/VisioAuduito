@@ -22,6 +22,7 @@ import android.widget.SeekBar;
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
 import com.customlbs.library.IndoorsLocationListener;
+import com.customlbs.library.LocalizationParameters;
 import com.customlbs.library.callbacks.IndoorsServiceCallback;
 import com.customlbs.library.callbacks.LoadingBuildingStatus;
 import com.customlbs.library.callbacks.RoutingCallback;
@@ -90,12 +91,16 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         thisObject = this;
+        LocalizationParameters setupParams = new LocalizationParameters();
+        setupParams.setPositionCalculationInterval(100);
+        setupParams.setPositionUpdateInterval(100);
+
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
         indoorsBuilder.setUserInteractionListener(this);
         indoorsBuilder.setEvaluationMode(false);
-
+        indoorsBuilder.setLocalizationParameters(setupParams);
         indoorsBuilder.setApiKey("34420529-47cf-4e4f-a3b6-79f1e0948aab");
         indoorsBuilder.setBuildingId(Long.parseLong(getIntent().getStringExtra(extraName)));
 
@@ -190,7 +195,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void positionUpdated(Coordinate coordinate, int i) {
 
         Log.d(TAG,coordinate.toString());
-
+        indoorsFragment.updateSurface();
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
         if(zonesList!=null&&!initializedZonesAndPosition){
