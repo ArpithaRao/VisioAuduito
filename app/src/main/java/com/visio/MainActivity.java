@@ -1,10 +1,13 @@
 package com.visio;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
@@ -14,6 +17,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.SeekBar;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -99,12 +103,10 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         setSupportActionBar(myToolbar);
 
 
-
         IndoorsSurfaceFactory.Builder indoorsSurface = new IndoorsSurfaceFactory.Builder();
         indoorsSurface.setIndoorsBuilder(indoorsBuilder);
 
         SpeechEngine.createInstance(this);
-
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
@@ -113,6 +115,23 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         transaction.commit();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if(SpeechEngine.getInstance()!=null)
+            SpeechEngine.getInstance().stop();
+    }
+    @Override
+    protected void onResume(){
+        super.onResume();
+        SpeechEngine.createInstance(this);
+    }
+
+    protected void onStop(){
+        super.onStop();
+        if(SpeechEngine.getInstance()!=null)
+            SpeechEngine.getInstance().stop();
+    }
 
     @Override
     public void connected() {
@@ -381,8 +400,10 @@ class RouterImplementation implements RouterInterface{
     }
 
 
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation) {
 
+            SpeechEngine speechengine=SpeechEngine.getInstance();
 
             Coordinate currentCoordinate = this.nextCoordinate;
             setNextCoordinate();
@@ -390,10 +411,12 @@ class RouterImplementation implements RouterInterface{
                 double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
                 String turnDirection = getTurnDirection(direction);
                 Log.d(MainActivity.TAG+" route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
+                speechengine.speak(enhanceDirection(direction, turnDirection),TextToSpeech.QUEUE_ADD,null,"Direction");
             }else{
                 double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
                 String turnDirection = getTurnDirection(direction);
                 Log.d(MainActivity.TAG + " route","Your destination is on your "+turnDirection);
+                SpeechEngine.getInstance().speak("Your destination is on your " + turnDirection,TextToSpeech.QUEUE_ADD,null,"Destination");
                 MainActivity.inRoutingMode = false;
             }
 
@@ -455,7 +478,4 @@ class RouterImplementation implements RouterInterface{
             sayNextRoute(currentPosition,currentOrientation);
         }
     }
-
-
-
 }
