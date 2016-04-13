@@ -23,7 +23,7 @@ public class SettingsActivity extends AppCompatActivity implements SeekBar.OnSee
         setContentView(R.layout.activity_settings);
 
         SharedPreferences preferences = getSharedPreferences(PREF, 0);
-        Integer thresholdVal=preferences.getInt("threshold", 1000);
+        Integer thresholdVal=preferences.getInt("threshold", 100);
         Integer degreesVal = preferences.getInt("degrees",35);
         boolean[] gender = new boolean[3];
         gender[0]=preferences.getBoolean("men",false);

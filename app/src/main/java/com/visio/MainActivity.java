@@ -294,7 +294,7 @@ class VoiceCommandInput{
     }
 
     public void takeSpeechInput(int promptID){
-        String prompt="Could not initialize";
+        String prompt="Where would you like to go ?";
 
         Intent intentHandle = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intentHandle.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
@@ -310,6 +310,7 @@ class VoiceCommandInput{
     public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
         Coordinate destinationCoordinate;
+        final int threshold=callingActivity.getSharedPreferences("MyPreferences",0).getInt("threshold",100);
         if(MainActivity.zoneEntrance.containsKey(zoneId.toUpperCase())){
             destinationCoordinate = MainActivity.zoneEntrance.get(zoneId.toUpperCase());
             MainActivity.indoorsFragment.getIndoors().getRouteAToB(sourceCoordinate, destinationCoordinate, new RoutingCallback() {
@@ -320,7 +321,7 @@ class VoiceCommandInput{
                     MainActivity.indoorsFragment.getSurfaceState().setRoutingPath(arrayList);
                     MainActivity.indoorsFragment.getSurfaceState().orientedNaviArrow = true;
                     MainActivity.indoorsFragment.updateSurface();
-                    MainActivity.registerForNextChange(new RouterImplementation(arrayList));
+                    MainActivity.registerForNextChange(new RouterImplementation(arrayList,threshold));
                     Log.d("Route",arrayList.toString());
                 }
 
@@ -340,7 +341,7 @@ class VoiceCommandInput{
 
 interface RouterInterface{
 
-    int THRESHOLD = 1000;
+
     void getDistance(Coordinate currentPosition, float currentOrientation);
 }
 
@@ -379,13 +380,12 @@ class RouterImplementation implements RouterInterface{
     //public Activity callingActivity;
     Coordinate nextCoordinate = null;
     int i = 0;
+    int THRESHOLD = 100;
 
-
-
-    public RouterImplementation(List<Coordinate> routerCoordinate) {
+    public RouterImplementation(List<Coordinate> routerCoordinate,int threshold) {
         this.routerCoordinate = routerCoordinate;
-
         firstRegister();
+        this.THRESHOLD=threshold;
     }
 
     public void firstRegister(){
@@ -411,12 +411,12 @@ class RouterImplementation implements RouterInterface{
                 double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
                 String turnDirection = getTurnDirection(direction);
                 Log.d(MainActivity.TAG+" route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
-                speechengine.speak(enhanceDirection(direction, turnDirection),TextToSpeech.QUEUE_ADD,null,"Direction");
+                speechengine.speak(enhanceDirection(direction, turnDirection),TextToSpeech.QUEUE_FLUSH,null,"Direction");
             }else{
                 double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
                 String turnDirection = getTurnDirection(direction);
                 Log.d(MainActivity.TAG + " route","Your destination is on your "+turnDirection);
-                SpeechEngine.getInstance().speak("Your destination is on your " + turnDirection,TextToSpeech.QUEUE_ADD,null,"Destination");
+                SpeechEngine.getInstance().speak("Your destination is on your " + turnDirection,TextToSpeech.QUEUE_FLUSH,null,"Destination");
                 MainActivity.inRoutingMode = false;
             }
 
@@ -429,7 +429,7 @@ class RouterImplementation implements RouterInterface{
         }else if(modDirection>=22.50f && modDirection <= 44.9f){
             return "TAKE SLIGHT " + turnDirection + " TURN";
         }else if(modDirection>=45f && modDirection<=134.9f){
-            return "TAKE" + turnDirection + "TURN";
+            return "TAKE " + turnDirection + " TURN";
         }else if(modDirection>=135.0f && modDirection <=147.49f){
             return "TAKE HARD " + turnDirection + " TURN";
         }else{
