@@ -37,6 +37,7 @@ import com.customlbs.surface.library.IndoorsSurfaceFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 
@@ -46,6 +47,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public final static int REQ_CODE_SPEECH_INPUT = 100;
     public MainActivity thisObject;
 
+    public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
 
@@ -92,9 +94,9 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         setContentView(R.layout.activity_main);
         thisObject = this;
         LocalizationParameters setupParams = new LocalizationParameters();
-        setupParams.setPositionCalculationInterval(100);
-        setupParams.setPositionUpdateInterval(100);
-
+        setupParams.setPositionCalculationInterval(10);
+        setupParams.setPositionUpdateInterval(10);
+        setupParams.setTrackingInterval(10);
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
@@ -115,9 +117,10 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
         transaction.commit();
+
     }
 
     @Override
@@ -195,9 +198,15 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void positionUpdated(Coordinate coordinate, int i) {
 
         Log.d(TAG,coordinate.toString());
-        indoorsFragment.updateSurface();
+        MainActivity.transaction.commitNow();
+
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
+
+        transaction = getSupportFragmentManager().beginTransaction();
+        transaction.replace(android.R.id.content,indoorsFragment,"indoors");
+        transaction.commit();
+
         if(zonesList!=null&&!initializedZonesAndPosition){
             initializedZonesAndPosition = true;
         }
@@ -386,7 +395,7 @@ class RouterImplementation implements RouterInterface{
     Coordinate nextCoordinate = null;
     int i = 0;
     int THRESHOLD = 100;
-
+    boolean reachedDestination;
     public RouterImplementation(List<Coordinate> routerCoordinate,int threshold) {
         this.routerCoordinate = routerCoordinate;
         firstRegister();
@@ -412,7 +421,7 @@ class RouterImplementation implements RouterInterface{
 
             Coordinate currentCoordinate = this.nextCoordinate;
             setNextCoordinate();
-            if(routerCoordinate.size()>1) {
+            if(this.reachedDestination) {
                 double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
                 String turnDirection = getTurnDirection(direction);
                 Log.d(MainActivity.TAG+" route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
@@ -471,16 +480,30 @@ class RouterImplementation implements RouterInterface{
 
     @Override
     public void getDistance(Coordinate currentPosition, float currentOrientation) {
-        if(this.routerCoordinate.size()<=0){
-            MainActivity.inRoutingMode = false;
-            return;
-        }
-        int dx = Math.abs(currentPosition.x- nextCoordinate.x);
-        int dy = Math.abs(currentPosition.y- nextCoordinate.y);
-
-        if(Math.sqrt(dy-dx)<=THRESHOLD){
-
-            sayNextRoute(currentPosition,currentOrientation);
-        }
+        LinkedList<Coordinate> temp = new LinkedList<>(this.routerCoordinate);
+        Iterator tempIter = temp.listIterator();
+        Coordinate currentCoordinate;
+        Coordinate tempCoordinate;
+        double min = Double.MAX_VALUE;
+       while(tempIter.hasNext()){
+           tempCoordinate = (Coordinate) tempIter.next();
+           double distance = calculateDistance(currentPosition,tempCoordinate);
+           if(distance<=THRESHOLD&&distance<min){
+               currentCoordinate = tempCoordinate;
+               if(!tempIter.hasNext()){
+                    MainActivity.inRoutingMode = false;
+                    this.reachedDestination = true;return;
+               }
+               this.nextCoordinate = (Coordinate) tempIter.next();
+               
+           }
+       }
     }
+
+    double calculateDistance(Coordinate currentPosition, Coordinate targetPosition){
+        double dx = Math.abs(currentPosition.x - targetPosition.x);
+        double dy = Math.abs(currentPosition.y - targetPosition.y);
+        return Math.sqrt(dy+dx);
+    }
+
 }
