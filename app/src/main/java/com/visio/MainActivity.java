@@ -98,7 +98,8 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         setupParams.setPositionCalculationInterval(10);
         setupParams.setPositionUpdateInterval(10);
         setupParams.setTrackingInterval(10);
-
+        setupParams.setUseStabilizationFilter(false);
+        
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
