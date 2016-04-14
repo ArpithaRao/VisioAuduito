@@ -95,11 +95,11 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         setContentView(R.layout.activity_main);
         thisObject = this;
         LocalizationParameters setupParams = new LocalizationParameters();
-        setupParams.setPositionCalculationInterval(10);
-        setupParams.setPositionUpdateInterval(10);
+        setupParams.setPositionCalculationInterval(1000);
+        setupParams.setPositionUpdateInterval(1000);
         setupParams.setTrackingInterval(10);
         setupParams.setUseStabilizationFilter(false);
-        
+
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
@@ -121,7 +121,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
         transaction = getSupportFragmentManager().beginTransaction();
-        transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
+        transaction.replace(android.R.id.content, indoorsFragment, "indoors");
         transaction.commit();
 
     }
@@ -201,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void positionUpdated(Coordinate coordinate, int i) {
 
         Log.d(TAG,coordinate.toString());
-        MainActivity.transaction.commitNow();
+
 
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
