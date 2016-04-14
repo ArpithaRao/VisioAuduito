@@ -205,9 +205,9 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
 
-        transaction = getSupportFragmentManager().beginTransaction();
+       /* transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content,indoorsFragment,"indoors");
-        transaction.commit();
+        transaction.commit();*/
 
         if(zonesList!=null&&!initializedZonesAndPosition){
             initializedZonesAndPosition = true;
