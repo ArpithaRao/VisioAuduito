@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 
 
 public class MainActivity extends AppCompatActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
@@ -97,6 +98,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         setupParams.setPositionCalculationInterval(10);
         setupParams.setPositionUpdateInterval(10);
         setupParams.setTrackingInterval(10);
+
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
@@ -270,6 +272,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
+        registeringObject.getDistance(currentUserCoordinates,currentUserOrientation);
     }
 
 
@@ -387,7 +390,6 @@ class SpeechEngine extends TextToSpeech {
     }
 }
 
-
 class RouterImplementation implements RouterInterface{
     public List<Coordinate> routerCoordinate;
     public Iterator<Coordinate> iterCoordinate;
@@ -395,45 +397,64 @@ class RouterImplementation implements RouterInterface{
     Coordinate nextCoordinate = null;
     int i = 0;
     int THRESHOLD = 100;
-    boolean reachedDestination;
+    boolean visited[];
     public RouterImplementation(List<Coordinate> routerCoordinate,int threshold) {
         this.routerCoordinate = routerCoordinate;
+        visited = new boolean[this.routerCoordinate.size()];
         firstRegister();
         this.THRESHOLD=threshold;
     }
 
     public void firstRegister(){
-        setNextCoordinate();
-
 
     }
 
-    private void setNextCoordinate() {
-        nextCoordinate = routerCoordinate.get(i);
-        routerCoordinate.remove(i);
-    }
+
 
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation) {
+    public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation, int nextCoordinateIndex) {
 
-            SpeechEngine speechengine=SpeechEngine.getInstance();
+        SpeechEngine speechEngine = SpeechEngine.getInstance();
 
-            Coordinate currentCoordinate = this.nextCoordinate;
-            setNextCoordinate();
-            if(this.reachedDestination) {
-                double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
-                String turnDirection = getTurnDirection(direction);
-                Log.d(MainActivity.TAG+" route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
-                speechengine.speak(enhanceDirection(direction, turnDirection),TextToSpeech.QUEUE_FLUSH,null,"Direction");
-            }else{
-                double direction = getDirection(currentCoordinate, nextCoordinate, userCurrentOrientation);
-                String turnDirection = getTurnDirection(direction);
-                Log.d(MainActivity.TAG + " route","Your destination is on your "+turnDirection);
-                SpeechEngine.getInstance().speak("Your destination is on your " + turnDirection,TextToSpeech.QUEUE_FLUSH,null,"Destination");
-                MainActivity.inRoutingMode = false;
+
+        if(!visited[nextCoordinateIndex-1]) {
+            visited[nextCoordinateIndex-1] = true;
+            double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
+            double finalDirection = getFinalDirectionAngle(direction);
+            String turnDirection = getTurnDirection(finalDirection);
+            if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
+
+
+
+                Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
+                //System.out.println(enhanceDirection(finalDirection,turnDirection)+" "+finalDirection);
+
+                speechEngine.speak(enhanceDirection(direction, turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Direction");
+            } else {
+
+                Log.d(MainActivity.TAG + " route", "Your destination is on your " + turnDirection);
+                //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
+                speechEngine.getInstance().speak("Your destination is on your " + turnDirection, TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                //MainActivity.inRoutingMode = false;
             }
+        }
 
+    }
+
+    private double getFinalDirectionAngle(double direction) {
+        boolean positive;
+        boolean invert = Math.abs(direction)>180?true:false;
+        double actualTurnAngle = direction;
+        if(invert){
+            double howMuchMoreThan180 = Math.abs(direction) - 180;
+            actualTurnAngle = 180 - howMuchMoreThan180;
+
+            int sign = (int)(direction / (Math.abs(direction)));
+            actualTurnAngle = (sign * -1) * actualTurnAngle;
+        }
+
+        return actualTurnAngle;
     }
 
     public String enhanceDirection(double direction, String turnDirection){
@@ -450,18 +471,8 @@ class RouterImplementation implements RouterInterface{
             return "TURN BACK";
         }
     }
-    public String getTurnDirection(double direction) {
+    public String getTurnDirection(double actualTurnAngle) {
         boolean positive;
-        boolean invert = Math.abs(direction)>180?true:false;
-        double actualTurnAngle = direction;
-        if(invert){
-            double howMuchMoreThan180 = direction - 180;
-            actualTurnAngle = 180 - howMuchMoreThan180;
-
-            int sign = (int)(direction / (Math.abs(direction)));
-            actualTurnAngle = (sign * -1) * actualTurnAngle;
-        }
-
         positive = actualTurnAngle>0?true:false;
 
         return positive?"LEFT":"RIGHT";
@@ -481,23 +492,30 @@ class RouterImplementation implements RouterInterface{
     @Override
     public void getDistance(Coordinate currentPosition, float currentOrientation) {
         LinkedList<Coordinate> temp = new LinkedList<>(this.routerCoordinate);
-        Iterator tempIter = temp.listIterator();
-        Coordinate currentCoordinate;
-        Coordinate tempCoordinate;
+        ListIterator tempIter = temp.listIterator();
+        Coordinate setThisToNextCoordinate = null;
+        int i = 0;
+        int targetIndex = 0;
         double min = Double.MAX_VALUE;
-       while(tempIter.hasNext()){
-           tempCoordinate = (Coordinate) tempIter.next();
-           double distance = calculateDistance(currentPosition,tempCoordinate);
-           if(distance<=THRESHOLD&&distance<min){
-               currentCoordinate = tempCoordinate;
-               if(!tempIter.hasNext()){
-                    MainActivity.inRoutingMode = false;
-                    this.reachedDestination = true;return;
-               }
-               this.nextCoordinate = (Coordinate) tempIter.next();
-               
-           }
-       }
+        while(tempIter.hasNext()){
+            Coordinate targetCoordinate = (Coordinate) tempIter.next();
+            double distance = calculateDistance(currentPosition,targetCoordinate);
+
+            if(distance<=THRESHOLD&&distance<min){
+                setThisToNextCoordinate = targetCoordinate;
+                min = distance;
+                targetIndex = i;
+            }
+            i++;
+        }
+
+        if(setThisToNextCoordinate!=null){
+            if(targetIndex!=this.routerCoordinate.size()-1) {
+                this.nextCoordinate = temp.get(targetIndex + 1);
+                this.sayNextRoute(setThisToNextCoordinate, currentOrientation, targetIndex + 1);
+            }
+        }
+
     }
 
     double calculateDistance(Coordinate currentPosition, Coordinate targetPosition){
