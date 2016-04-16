@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -17,7 +16,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.SeekBar;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -97,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
         setupParams.setPositionUpdateInterval(1000);
-        setupParams.setTrackingInterval(10);
+        setupParams.setTrackingInterval(1000);
         setupParams.setUseStabilizationFilter(false);
 
         indoorsBuilder = new IndoorsFactory.Builder();
@@ -121,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
         transaction = getSupportFragmentManager().beginTransaction();
-        transaction.replace(android.R.id.content, indoorsFragment, "indoors");
+        transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
         transaction.commit();
 
     }
@@ -200,11 +198,12 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     @Override
     public void positionUpdated(Coordinate coordinate, int i) {
 
-        Log.d(TAG,coordinate.toString());
+        //Log.d(TAG,coordinate.toString());
 
 
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
+        currentUserOrientation = indoorsFragment.getSurfaceState().userOrientationDegrees;
 
        /* transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content,indoorsFragment,"indoors");
@@ -225,6 +224,8 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
     @Override
     public void orientationUpdated(float v) {
+
+        Log.d("Tag", String.valueOf(indoorsFragment.getSurfaceState().userOrientationDegrees)+":"+String.valueOf(v));
         currentUserOrientation = v;
         if(zonesList!=null&&currentUserCoordinates!=null&&!initializedZonesAndPosition){
             initializedZonesAndPosition = true;
@@ -328,7 +329,7 @@ class VoiceCommandInput{
     public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
         Coordinate destinationCoordinate;
-        final int threshold=callingActivity.getSharedPreferences("MyPreferences",0).getInt("threshold",100);
+        final int threshold=callingActivity.getSharedPreferences("MyPreferences",0).getInt("threshold",50);
         if(MainActivity.zoneEntrance.containsKey(zoneId.toUpperCase())){
             destinationCoordinate = MainActivity.zoneEntrance.get(zoneId.toUpperCase());
             MainActivity.indoorsFragment.getIndoors().getRouteAToB(sourceCoordinate, destinationCoordinate, new RoutingCallback() {
@@ -340,7 +341,7 @@ class VoiceCommandInput{
                     MainActivity.indoorsFragment.getSurfaceState().orientedNaviArrow = true;
                     MainActivity.indoorsFragment.updateSurface();
                     MainActivity.registerForNextChange(new RouterImplementation(arrayList,threshold));
-                    Log.d("Route",arrayList.toString());
+                   // Log.d("Route",arrayList.toString());
                 }
 
                 @Override
@@ -418,7 +419,6 @@ class RouterImplementation implements RouterInterface{
 
         SpeechEngine speechEngine = SpeechEngine.getInstance();
 
-
         if(!visited[nextCoordinateIndex-1]) {
             visited[nextCoordinateIndex-1] = true;
             double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
@@ -426,17 +426,15 @@ class RouterImplementation implements RouterInterface{
             String turnDirection = getTurnDirection(finalDirection);
             if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
 
-
-
-                Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
+                Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(finalDirection, turnDirection));
                 //System.out.println(enhanceDirection(finalDirection,turnDirection)+" "+finalDirection);
 
-                speechEngine.speak(enhanceDirection(direction, turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Direction");
+                speechEngine.speak(enhanceDirection(finalDirection, turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Direction");
             } else {
 
-                Log.d(MainActivity.TAG + " route", "Your destination is on your " + turnDirection);
+                Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
-                speechEngine.getInstance().speak("Your destination is on your " + turnDirection, TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 //MainActivity.inRoutingMode = false;
             }
         }
@@ -445,11 +443,12 @@ class RouterImplementation implements RouterInterface{
 
     private double getFinalDirectionAngle(double direction) {
         boolean positive;
+        Log.d("Raw direction", String.valueOf(direction));
         boolean invert = Math.abs(direction)>180?true:false;
         double actualTurnAngle = direction;
         if(invert){
-            double howMuchMoreThan180 = Math.abs(direction) - 180;
-            actualTurnAngle = 180 - howMuchMoreThan180;
+
+            actualTurnAngle = 360 - Math.abs(actualTurnAngle);
 
             int sign = (int)(direction / (Math.abs(direction)));
             actualTurnAngle = (sign * -1) * actualTurnAngle;
@@ -458,8 +457,27 @@ class RouterImplementation implements RouterInterface{
         return actualTurnAngle;
     }
 
+    public String enhanceDestination(double direction, String turnDirection){
+        float modDirection = (float) Math.abs(direction);
+
+        if(modDirection<22.49f){
+            return "in front of you";
+        }else if(modDirection>=22.50f && modDirection <= 44.9f){
+            return "to slight " + turnDirection +" of you";
+        }else if(modDirection>=45f && modDirection<=134.9f){
+            return "to the " + turnDirection +" of you";
+        }else if(modDirection>=135.0f && modDirection <=147.49f){
+            return "behind you on the " + turnDirection;
+        }else if(modDirection >=148 && modDirection <=180){
+            return "behind you";
+        }else return "Direction error";
+    }
+
     public String enhanceDirection(double direction, String turnDirection){
         float modDirection = (float) Math.abs(direction);
+
+        Log.d("Direction",String.valueOf(modDirection)+" "+turnDirection);
+
         if(modDirection<22.49f){
             return "GO STRAIGHT";
         }else if(modDirection>=22.50f && modDirection <= 44.9f){
@@ -468,9 +486,9 @@ class RouterImplementation implements RouterInterface{
             return "TAKE " + turnDirection + " TURN";
         }else if(modDirection>=135.0f && modDirection <=147.49f){
             return "TAKE HARD " + turnDirection + " TURN";
-        }else{
+        }else if(modDirection >=148 && modDirection <=180){
             return "TURN BACK";
-        }
+        }else return "Direction error";
     }
     public String getTurnDirection(double actualTurnAngle) {
         boolean positive;
@@ -481,8 +499,8 @@ class RouterImplementation implements RouterInterface{
     }
 
     public double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
-        int dx = nextCoordinate.x - userCurrentPosition.x ;
-        int dy = nextCoordinate.y - userCurrentPosition.y ;
+        int dx =  userCurrentPosition.x - nextCoordinate.x;
+        int dy =  userCurrentPosition.y - nextCoordinate.y ;
         double bearing = (180/Math.PI) * Math.atan2(dx,dy);
         bearing = bearing>0?bearing:360-Math.abs(bearing);
 
