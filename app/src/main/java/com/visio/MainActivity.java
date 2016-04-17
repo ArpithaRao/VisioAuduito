@@ -73,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static int threshold;
     public static float offset;
 
+    public OpenDoorController openClient;
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main,menu);
@@ -98,7 +99,9 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         thisObject = this;
         FirebaseZoneInfo localFirebase = new FirebaseZoneInfo(this);
         localFirebase.initZoneInfo();
-        MainActivity.zoneProperties = localFirebase.getAllZones();
+
+        openClient = new OpenDoorController(this);
+        openClient.setLightState(0,true);
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
         setupParams.setPositionUpdateInterval(1000);
@@ -135,11 +138,14 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         super.onPause();
         if(SpeechEngine.getInstance()!=null)
             SpeechEngine.getInstance().stop();
+        openClient.stopDiscovery();
+
     }
     @Override
     protected void onResume(){
         super.onResume();
         SpeechEngine.createInstance(this);
+        openClient.stopDiscovery();
     }
 
     protected void onStop(){
@@ -449,7 +455,9 @@ class RouterImplementation implements RouterInterface{
                 speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 makeThreadSleep(100);
                 for(com.visio.Zone localZone : MainActivity.zoneProperties){
-                    if(localZone.getId()==MainActivity.destinationEnd){
+
+                    if(localZone.getId().toUpperCase()==MainActivity.destinationEnd.toUpperCase()){
+
                         speechEngine.speak("The door opens " + localZone.getDirection(), TextToSpeech.QUEUE_ADD,null,"Destination");
                         if(localZone.getType().toUpperCase()=="Automatic".toUpperCase()){
 

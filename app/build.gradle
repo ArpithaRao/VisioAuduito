@@ -27,6 +27,12 @@ android {
             signingConfig signingConfigs.config
         }
     }
+
+    packagingOptions {
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE-FIREBASE.txt'
+        exclude 'META-INF/NOTICE'
+    }
 }
 
 dependencies {
@@ -39,5 +45,5 @@ dependencies {
     compile 'com.android.support:support-v4:23.2.1'
     compile 'com.android.support:appcompat-v7:24.0.0-alpha1'
     compile 'com.firebase:firebase-client-android:2.5.2+'
-
+    compile files('libs/weave_android_lib.jar')
 }

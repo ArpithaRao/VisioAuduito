@@ -11,7 +11,7 @@ import java.util.List;
 
 class FirebaseZoneInfo{
     Activity callingActivity;
-    Zones valuesFromFirebase;
+    com.visio.Zones valuesFromFirebase;
     public FirebaseZoneInfo(Activity callingActivity) {
         this.callingActivity = callingActivity;
         Firebase.setAndroidContext(callingActivity);

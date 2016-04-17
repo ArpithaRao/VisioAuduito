@@ -10,7 +10,20 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Allows applications to access information about Wi-Fi networks -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Allows request the OS to get accounts data -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
 
+    <!-- Allows applications to read the sync stats -->
+    <uses-permission android:name="android.permission.READ_SYNC_STATS" />
+    <!-- Allows an application to request authtokens from the AccountManager -->
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <!-- Allows an application to read sync settings -->
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <!-- Allows applications to write the sync settings -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -29,6 +42,27 @@
             </intent-filter>
         </activity>
         <activity android:name=".MainActivity" />
+
+        <provider
+            android:name="com.google.android.apps.weave.gcd.db.GcdContentProvider"
+            android:authorities="com.weaveeap.authority"
+            android:exported="false" />
+
+        <service
+            android:name="com.google.android.apps.weave.gcd.sync.GcdSyncService"
+            android:exported="true"
+            android:label="GCD sync service">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
+        <service
+            android:name="com.customlbs.service.Worker"
+            android:process=":remote" />
 
         <service
             android:name="com.customlbs.service.Worker"
