@@ -32,6 +32,11 @@ import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.MalformedInputException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -45,7 +50,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
     public MainActivity thisObject;
-
+    public static List<com.visio.Zone> zoneProperties;
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
@@ -69,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
     public VoiceCommandInput mInputVoiceCommand;
     public String mDestinationZone;
-
+    public static String destinationEnd;
     public static int threshold;
     public static float offset;
 
@@ -94,6 +99,8 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        FirebaseZoneInfo localFirebaseZone = new FirebaseZoneInfo(this);
+        localFirebaseZone.initZoneInfo();
         thisObject = this;
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
@@ -297,12 +304,35 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     mDestinationZone=inputCommand.get(0);
+                    MainActivity.destinationEnd = mDestinationZone;
                     mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
                 }
             }
         }
     }
+
+    public static void appendLog(String text){
+        File logFile = new File("sdcard/log.file");
+        if(!logFile.exists()) {
+            try {
+                logFile.createNewFile();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+            try{
+                BufferedWriter buf = new BufferedWriter(new FileWriter(logFile,true));
+                buf.append(text);
+                buf.newLine();
+                buf.flush();
+                buf.close();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+        }
+
 }
 
 class VoiceCommandInput{
@@ -427,9 +457,7 @@ class RouterImplementation implements RouterInterface{
             double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
             double finalDirection = getFinalDirectionAngle(direction);
             String turnDirection = getTurnDirection(finalDirection);
-            Log.d("PtNext", nextCoordinate.toString());
-            Log.d("PtUserLoc",userCurrentPosition.toString());
-            Log.d("PtOrientation",String.valueOf(userCurrentOrientation));
+
 
             if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
 
@@ -442,10 +470,26 @@ class RouterImplementation implements RouterInterface{
                 Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
                 speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
-                //MainActivity.inRoutingMode = false;
+                sleepThread(100);
+                if(MainActivity.zoneProperties!=null) {
+                    for (com.visio.Zone localZone : MainActivity.zoneProperties) {
+                        if (localZone.getId().toUpperCase().equals(MainActivity.destinationEnd.toUpperCase())) {
+                            speechEngine.speak("The door opens " + localZone.getDirection(), TextToSpeech.QUEUE_ADD, null, "Direction");
+                        }
+                    }
+                }
+                MainActivity.inRoutingMode = false;
             }
         }
 
+    }
+
+    public static void sleepThread(int pMilliseconds) {
+        try{
+            Thread.sleep(pMilliseconds);
+        }catch(InterruptedException e){
+            e.printStackTrace();
+        }
     }
 
     private double getFinalDirectionAngle(double direction) {
@@ -460,7 +504,7 @@ class RouterImplementation implements RouterInterface{
             int sign = (int)(direction / (Math.abs(direction)));
             actualTurnAngle = (sign * -1) * actualTurnAngle;
         }
-
+        MainActivity.appendLog("ActualTurnAngle " + actualTurnAngle);
         return actualTurnAngle;
 
     }
@@ -506,10 +550,16 @@ class RouterImplementation implements RouterInterface{
 
     public float updateCurrentOrientation() throws InterruptedException {
         float currentOrientation = 0;
-        for(int i=0;i<10;i++){
-            currentOrientation=MainActivity.indoorsFragment.getSurfaceState().userOrientationDegrees;
+        float sumCurrentOrientation = 0;
+        int countMax = 25;
+        for(int i=0;i<countMax;i++){
+            sumCurrentOrientation += MainActivity.indoorsFragment.getSurfaceState().userOrientationDegrees;
+            //currentOrientation=MainActivity.indoorsFragment.getSurfaceState().userOrientationDegrees;
             Thread.sleep(5);
         }
+        currentOrientation = sumCurrentOrientation/countMax;
+        MainActivity.appendLog("updateCurrentOrientation: " + currentOrientation);
+
         return currentOrientation;
     }
 
@@ -521,10 +571,13 @@ class RouterImplementation implements RouterInterface{
         }
 
         float correctedOrientation=(userCurrentOrientation-MainActivity.offset+360)%360;
+        MainActivity.appendLog("CorrectedCurrentOrientation: " + correctedOrientation);
         int dx =  nextCoordinate.x - userCurrentPosition.x;
         int dy =   nextCoordinate.y - userCurrentPosition.y;
         double bearing = (180/Math.PI) * Math.atan2(dx,dy);
         bearing = bearing>0?bearing:360-Math.abs(bearing);
+        MainActivity.appendLog("bearing " + bearing);
+        MainActivity.appendLog("corrected-bearing " + String.valueOf(correctedOrientation - bearing));
         return (correctedOrientation-bearing);
 
     }
