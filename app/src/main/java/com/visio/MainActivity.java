@@ -300,10 +300,16 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
             if(resultCode==RESULT_OK){
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    mDestinationZone=inputCommand.get(0);
+
+                    int i = -1;
                     for(String command : inputCommand) {
-                        zonesList.contains(command);
-                        mInputVoiceCommand.routeToZone(command);
+                        if (zonesList.contains(command)){
+                            i=zonesList.indexOf(command);
+                            mDestinationZone=command;
+                        }
+                    }
+                    if(i>0){
+                        mInputVoiceCommand.routeToZone(zonesList.get(i).getName());
                     }
                 }
             }
@@ -439,10 +445,10 @@ class RouterImplementation implements RouterInterface{
             double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
             double finalDirection = getFinalDirectionAngle(direction);
             String turnDirection = getTurnDirection(finalDirection);
-            Log.d("PtNext", nextCoordinate.toString());
+            /*Log.d("PtNext", nextCoordinate.toString());
             Log.d("PtUserLoc",userCurrentPosition.toString());
             Log.d("PtOrientation",String.valueOf(userCurrentOrientation));
-
+*/
             if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
 
                 Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(finalDirection, turnDirection,(int)distance));
@@ -480,11 +486,13 @@ class RouterImplementation implements RouterInterface{
     public String enhanceDestination(double direction, String turnDirection, int distance){
         float modDirection = (float) Math.abs(direction);
         Log.d("modDirection",String.valueOf(modDirection));
-        if(modDirection < 45.0f){
+        if(modDirection < 22.5f)
+            return "ahead of you ";
+        else if(modDirection >= 22.5f && modDirection<45.0f){
             return "in slightly to the " + turnDirection + " ahead of you";
-        }else if(modDirection >=45.0f && modDirection < 90.0f){
+        }else if(modDirection >=45.0f && modDirection < 105.0f){
             return "to the " + turnDirection + " of you";
-        }else if(modDirection >= 90.0f && modDirection <=180.0f){
+        }else if(modDirection >= 105.0f && modDirection <=180.0f){
             return "behind you on the " + turnDirection ;
         }else{
             return "Direction error";
