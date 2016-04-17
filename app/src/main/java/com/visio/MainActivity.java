@@ -16,6 +16,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.animation.RotateAnimation;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -53,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
-
+    public static Zone destinationZone;
 
 
     public static Coordinate currentUserCoordinates;
@@ -72,11 +73,11 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public boolean initializedZonesAndPosition = false; //This needs to be true before we do anything/
 
     public VoiceCommandInput mInputVoiceCommand;
-    public String mDestinationZone;
+    public static String mDestinationZone;
 
     public static int threshold;
     public static float offset;
-
+    public static ArrayList<Coordinate> route = null;
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main,menu);
@@ -278,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
-        registeringObject.getDistance(currentUserCoordinates,currentUserOrientation);
+        registeringObject.getDistance(MainActivity.route.get(0),currentUserOrientation);
     }
 
 
@@ -301,10 +302,10 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     mDestinationZone=inputCommand.get(0);
-                    for(String command : inputCommand) {
-                        zonesList.contains(command);
-                        mInputVoiceCommand.routeToZone(command);
-                    }
+
+
+                    mInputVoiceCommand.routeToZone(mDestinationZone);
+
                 }
             }
         }
@@ -453,7 +454,21 @@ class RouterImplementation implements RouterInterface{
 
                 Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
+
                 speechEngine.speak("Your destination is " + enhanceDestination(finalDirection, turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                try{
+                    Thread.sleep(1000);
+                }catch(InterruptedException e){
+                    e.printStackTrace();
+                }
+                for(com.visio.Zone zone : MainActivity.zoneProperties){
+                    if(zone.getId()==MainActivity.mDestinationZone){
+                        speechEngine.speak("The door opens " + zone.getDirection(), TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                    }
+                    if(zone.getType().toUpperCase()=="AUTOMATIC"){
+                        //Rohit insert code here.
+                    }
+                }
                 //MainActivity.inRoutingMode = false;
             }
         }
