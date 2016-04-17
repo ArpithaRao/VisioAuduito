@@ -1,8 +1,6 @@
 apply plugin: 'com.android.application'
 
 android {
-
-
     signingConfigs {
         config {
             keyAlias 'androiddebugkey'
@@ -29,12 +27,6 @@ android {
             signingConfig signingConfigs.config
         }
     }
-
-    packagingOptions {
-        exclude 'META-INF/LICENSE'
-        exclude 'META-INF/NOTICE'
-        exclude 'META-INF/NOTICE.txt'
-    }
 }
 
 dependencies {
@@ -46,7 +38,4 @@ dependencies {
     compile 'com.android.support:design:23.2.1'
     compile 'com.android.support:support-v4:23.2.1'
     compile 'com.android.support:appcompat-v7:24.0.0-alpha1'
-    compile 'com.google.android.gms:play-services-appindexing:8.4.0'
-    compile 'com.firebase:firebase-client-android:2.5.2'
-    compile files('src/main/jniLibs/indoors-library-surface.jar')
 }
