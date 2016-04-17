@@ -7,7 +7,7 @@ android {
         config {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-            storeFile file('/home/jayesh/.android/debug.keystore')
+            storeFile file('C:/Users/Ajinkya/Documents/Visio/debug.keystore')
             storePassword 'android'
         }
     }

@@ -49,7 +49,7 @@
         android:paddingBottom="16dp"
         android:paddingTop="16dp"
         android:labelFor="@string/threshold"
-        android:max="1000"
+        android:max="100"
         android:indeterminate="false"
         android:progress="100"
         android:layout_weight="5"/>
@@ -78,7 +78,7 @@
             android:tag="@string/degrees"
             android:paddingBottom="16dp"
             android:paddingTop="16dp"
-            android:max="180"
+            android:max="360"
             android:indeterminate="false"
             android:layout_weight="5"
             />
