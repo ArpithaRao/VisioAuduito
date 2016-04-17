@@ -31,10 +31,6 @@ import com.customlbs.shared.Coordinate;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
-import com.firebase.client.DataSnapshot;
-import com.firebase.client.Firebase;
-import com.firebase.client.FirebaseError;
-import com.firebase.client.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
     public MainActivity thisObject;
-    public static List<com.visio.Zone> zoneProperties = null;
+
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
@@ -300,27 +296,13 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
             if(resultCode==RESULT_OK){
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    mDestinationZone=inputCommand.get(0);
+                    mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
-                    int i = -1;
-                    for(String command : inputCommand) {
-                        if (zonesList.contains(command)){
-                            i=zonesList.indexOf(command);
-                            mDestinationZone=command;
-                        }
-                    }
-                    if(i>0){
-                        mInputVoiceCommand.routeToZone(zonesList.get(i).getName());
-                    }
                 }
             }
         }
     }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-    }
-
 }
 
 class VoiceCommandInput{
@@ -445,10 +427,10 @@ class RouterImplementation implements RouterInterface{
             double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
             double finalDirection = getFinalDirectionAngle(direction);
             String turnDirection = getTurnDirection(finalDirection);
-            /*Log.d("PtNext", nextCoordinate.toString());
+            Log.d("PtNext", nextCoordinate.toString());
             Log.d("PtUserLoc",userCurrentPosition.toString());
             Log.d("PtOrientation",String.valueOf(userCurrentOrientation));
-*/
+
             if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
 
                 Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(finalDirection, turnDirection,(int)distance));
@@ -459,7 +441,7 @@ class RouterImplementation implements RouterInterface{
 
                 Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
-                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection, turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 //MainActivity.inRoutingMode = false;
             }
         }
@@ -486,13 +468,11 @@ class RouterImplementation implements RouterInterface{
     public String enhanceDestination(double direction, String turnDirection, int distance){
         float modDirection = (float) Math.abs(direction);
         Log.d("modDirection",String.valueOf(modDirection));
-        if(modDirection < 22.5f)
-            return "ahead of you ";
-        else if(modDirection >= 22.5f && modDirection<45.0f){
+        if(modDirection < 45.0f){
             return "in slightly to the " + turnDirection + " ahead of you";
-        }else if(modDirection >=45.0f && modDirection < 105.0f){
+        }else if(modDirection >=45.0f && modDirection < 90.0f){
             return "to the " + turnDirection + " of you";
-        }else if(modDirection >= 105.0f && modDirection <=180.0f){
+        }else if(modDirection >= 90.0f && modDirection <=180.0f){
             return "behind you on the " + turnDirection ;
         }else{
             return "Direction error";
@@ -585,41 +565,3 @@ class RouterImplementation implements RouterInterface{
     }
 
 }
-
-class FirebaseZoneInfo{
-    Activity callingActivity;
-    Zones valuesFromFirebase;
-    public FirebaseZoneInfo(Activity callingActivity) {
-        this.callingActivity = callingActivity;
-        Firebase.setAndroidContext(callingActivity);
-    }
-    public void initZoneInfo(){
-        Firebase localFirebaseReference = new Firebase("https://visioaduito.firebaseio.com/");
-        localFirebaseReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                valuesFromFirebase = dataSnapshot.getValue(Zones.class);
-                MainActivity.zoneProperties = getAllZones();
-
-            }
-
-            @Override
-            public void onCancelled(FirebaseError firebaseError) {
-
-            }
-        });
-
-    }
-
-    public void fillZoneType(List<com.visio.Zone> zoneProperties, List<Zone> zoneList){
-        for(Zone eachZone: zoneList){
-
-        }
-    }
-
-    public List<com.visio.Zone> getAllZones(){
-        return valuesFromFirebase.getZones();
-    }
-
-}
-
