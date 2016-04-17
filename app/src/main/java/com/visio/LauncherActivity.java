@@ -53,6 +53,11 @@ public class LauncherActivity
         messageSubscribe();
         /*Intent  intent=new Intent(this,com.visio.SettingsActivity.class);
         startActivity(intent);*/
+
+        Intent intent = new Intent(this,MainActivity.class);
+        intent.putExtra(MainActivity.extraName,"685290313");
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(intent);
     }
 
     private void messageSubscribe(){

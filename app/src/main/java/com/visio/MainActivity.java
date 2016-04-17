@@ -7,12 +7,16 @@ import android.content.ActivityNotFoundException;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
@@ -30,10 +34,20 @@ import com.customlbs.library.callbacks.ZoneCallback;
 import com.customlbs.library.model.Building;
 import com.customlbs.library.model.Zone;
 import com.customlbs.shared.Coordinate;
+import com.customlbs.surface.library.DefaultSurfacePainterConfiguration;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
+import com.customlbs.surface.library.SurfacePainterConfiguration;
+import com.firebase.client.DataSnapshot;
+import com.firebase.client.Firebase;
+import com.firebase.client.FirebaseError;
+import com.firebase.client.ValueEventListener;
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.common.api.GoogleApiClient;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -42,7 +56,7 @@ import java.util.List;
 import java.util.ListIterator;
 
 
-public class MainActivity extends AppCompatActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
+public class MainActivity extends AppCompatActivity implements IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener {
     public static String TAG = MainActivity.class.getSimpleName();
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
@@ -53,14 +67,14 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static IndoorsFactory.Builder indoorsBuilder;
 
 
-
     public static Coordinate currentUserCoordinates;
     public static int currentAccuracy;
     public static float currentUserOrientation;
 
     public static List<Zone> zonesList;
-    public static HashMap<String,Coordinate> zoneEntrance;
-
+    public static HashMap<String, Coordinate> zoneEntrance;
+    public static HashMap<String, String> zoneType;
+    public static HashMap<String, String> zoneValue;
     public static boolean inRoutingMode = false;
     private static List<RouterInterface> registeredObjects = new ArrayList<RouterInterface>(); //These objects need to be notified
     //in case of user change of position
@@ -72,17 +86,24 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public VoiceCommandInput mInputVoiceCommand;
     public String mDestinationZone;
 
+    public static List<com.visio.Zone> zoneProperties = null;
+    /**
+     * ATTENTION: This was auto-generated to implement the App Indexing API.
+     * See https://g.co/AppIndexing/AndroidStudio for more information.
+     */
+    private GoogleApiClient client;
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main,menu);
+        getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()){
+        switch (item.getItemId()) {
             case R.id.action_settings:
-                Intent intent = new Intent(this,SettingsActivity.class);
+                Intent intent = new Intent(this, SettingsActivity.class);
                 startActivity(intent);
                 break;
         }
@@ -94,6 +115,10 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         thisObject = this;
+
+        FirebaseZoneInfo localZoneInfo = new FirebaseZoneInfo(this);
+        localZoneInfo.initZoneInfo();
+
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
         setupParams.setPositionUpdateInterval(1000);
@@ -120,28 +145,52 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
+
         transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content, indoorsFragment, "indoors");
         transaction.commit();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
+
+
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if(SpeechEngine.getInstance()!=null)
+        if (SpeechEngine.getInstance() != null)
             SpeechEngine.getInstance().stop();
     }
+
     @Override
-    protected void onResume(){
+    protected void onResume() {
         super.onResume();
         SpeechEngine.createInstance(this);
     }
 
-    protected void onStop(){
+    protected void onStop() {
         super.onStop();
-        if(SpeechEngine.getInstance()!=null)
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Main Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://com.visio/http/host/path")
+        );
+        AppIndex.AppIndexApi.end(client, viewAction);
+        if (SpeechEngine.getInstance() != null)
             SpeechEngine.getInstance().stop();
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.disconnect();
     }
 
     @Override
@@ -150,7 +199,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     }
 
     @Override
-    public void onError (IndoorsException e){
+    public void onError(IndoorsException e) {
 
     }
 
@@ -181,13 +230,13 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         });
     }
 
-    private HashMap<String,Coordinate> getZonesEntrance(List<Zone> zonesList) {
-        HashMap<String,Coordinate> mapZoneToCoordinate = new HashMap<>();
-        for(Zone eachZone : zonesList){
-            Coordinate newCoordinate = new Coordinate((eachZone.getZonePoints().get(0).x+eachZone.getZonePoints().get(1).x)/2,
-                    (eachZone.getZonePoints().get(0).y+eachZone.getZonePoints().get(1).y)/2,
+    private HashMap<String, Coordinate> getZonesEntrance(List<Zone> zonesList) {
+        HashMap<String, Coordinate> mapZoneToCoordinate = new HashMap<>();
+        for (Zone eachZone : zonesList) {
+            Coordinate newCoordinate = new Coordinate((eachZone.getZonePoints().get(0).x + eachZone.getZonePoints().get(1).x) / 2,
+                    (eachZone.getZonePoints().get(0).y + eachZone.getZonePoints().get(1).y) / 2,
                     eachZone.getZonePoints().get(0).z);
-            mapZoneToCoordinate.put(eachZone.getName().toUpperCase(),newCoordinate);
+            mapZoneToCoordinate.put(eachZone.getName().toUpperCase(), newCoordinate);
         }
         return mapZoneToCoordinate;
     }
@@ -200,8 +249,8 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     @Override
     public void positionUpdated(Coordinate coordinate, int i) {
 
-        Log.d(TAG,coordinate.toString());
-
+        Log.d(TAG, coordinate.toString());
+        Log.d(TAG, new Float(MainActivity.currentUserOrientation).toString());
 
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
@@ -210,23 +259,23 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         transaction.replace(android.R.id.content,indoorsFragment,"indoors");
         transaction.commit();*/
 
-        if(zonesList!=null&&!initializedZonesAndPosition){
+        if (zonesList != null && !initializedZonesAndPosition) {
             initializedZonesAndPosition = true;
         }
-        if(inRoutingMode)
+        if (inRoutingMode)
             notifyAllObservers();
     }
 
     private void notifyAllObservers() {
-        for(RouterInterface localInterfaceObject:MainActivity.registeredObjects){
-            localInterfaceObject.getDistance(currentUserCoordinates,currentUserOrientation);
+        for (RouterInterface localInterfaceObject : MainActivity.registeredObjects) {
+            localInterfaceObject.getDistance(currentUserCoordinates, currentUserOrientation);
         }
     }
 
     @Override
     public void orientationUpdated(float v) {
         currentUserOrientation = v;
-        if(zonesList!=null&&currentUserCoordinates!=null&&!initializedZonesAndPosition){
+        if (zonesList != null && currentUserCoordinates != null && !initializedZonesAndPosition) {
             initializedZonesAndPosition = true;
         }
     }
@@ -240,14 +289,14 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void enteredZones(List<Zone> list) {
 
         List<String> stringList = new ArrayList<>();
-        for(Zone zone : list){
+        for (Zone zone : list) {
             stringList.add(zone.getName());
         }
 
-        if(inRoutingMode) {
-            if(stringList.contains( mDestinationZone)){
-                inRoutingMode=false;
-                SpeechEngine.getInstance().speak("Destination",SpeechEngine.QUEUE_ADD,null);
+        if (inRoutingMode) {
+            if (stringList.contains(mDestinationZone)) {
+                inRoutingMode = false;
+                SpeechEngine.getInstance().speak("Destination", SpeechEngine.QUEUE_ADD, null);
             }
         }
     }
@@ -269,38 +318,59 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         return currentUserOrientation;
     }
 
-    public static void registerForNextChange(RouterInterface registeringObject){
+    public static void registerForNextChange(RouterInterface registeringObject) {
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
-        registeringObject.getDistance(currentUserCoordinates,currentUserOrientation);
+        registeringObject.getDistance(currentUserCoordinates, currentUserOrientation);
     }
 
 
     @SuppressLint("NewApi")
     @Override
     public void onClick(Coordinate coordinate) {
-        if(initializedZonesAndPosition) {
+        if (initializedZonesAndPosition) {
             SpeechEngine speechEngine = SpeechEngine.getInstance();
-         //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
+            //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
             mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
         }
     }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode==MainActivity.REQ_CODE_SPEECH_INPUT){
-            if(resultCode==RESULT_OK){
-                if(data!=null){
+        if (requestCode == MainActivity.REQ_CODE_SPEECH_INPUT) {
+            if (resultCode == RESULT_OK) {
+                if (data != null) {
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    mDestinationZone=inputCommand.get(0);
+                    mDestinationZone = inputCommand.get(0);
                     mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
                 }
             }
         }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        // ATTENTION: This was auto-generated to implement the App Indexing API.
+        // See https://g.co/AppIndexing/AndroidStudio for more information.
+        client.connect();
+        Action viewAction = Action.newAction(
+                Action.TYPE_VIEW, // TODO: choose an action type.
+                "Main Page", // TODO: Define a title for the content shown.
+                // TODO: If you have web page content that matches this app activity's content,
+                // make sure this auto-generated web page URL is correct.
+                // Otherwise, set the URL to null.
+                Uri.parse("http://host/path"),
+                // TODO: Make sure this auto-generated app URL is correct.
+                Uri.parse("android-app://com.visio/http/host/path")
+        );
+        AppIndex.AppIndexApi.start(client, viewAction);
     }
 }
 
@@ -526,3 +596,41 @@ class RouterImplementation implements RouterInterface{
     }
 
 }
+
+class FirebaseZoneInfo{
+    Activity callingActivity;
+    Zones valuesFromFirebase;
+    public FirebaseZoneInfo(Activity callingActivity) {
+        this.callingActivity = callingActivity;
+        Firebase.setAndroidContext(callingActivity);
+    }
+    public void initZoneInfo(){
+        Firebase localFirebaseReference = new Firebase("https://visioaduito.firebaseio.com/");
+        localFirebaseReference.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                valuesFromFirebase = dataSnapshot.getValue(Zones.class);
+                MainActivity.zoneProperties = getAllZones();
+                fillZoneType(MainActivity.zoneProperties,MainActivity.zonesList);
+            }
+
+            @Override
+            public void onCancelled(FirebaseError firebaseError) {
+
+            }
+        });
+
+    }
+
+    public void fillZoneType(List<com.visio.Zone> zoneProperties, List<Zone> zoneList){
+        for(Zone eachZone: zoneList){
+
+        }
+    }
+
+    public List<com.visio.Zone> getAllZones(){
+        return valuesFromFirebase.getZones();
+    }
+
+}
+
