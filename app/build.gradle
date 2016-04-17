@@ -5,7 +5,7 @@ android {
         config {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-            storeFile file('C:/Users/Ajinkya/Documents/Visio/debug.keystore')
+            storeFile file('/home/jayesh/.android/debug.keystore')
             storePassword 'android'
         }
     }
@@ -38,4 +38,6 @@ dependencies {
     compile 'com.android.support:design:23.2.1'
     compile 'com.android.support:support-v4:23.2.1'
     compile 'com.android.support:appcompat-v7:24.0.0-alpha1'
+    compile 'com.firebase:firebase-client-android:2.5.2+'
+
 }

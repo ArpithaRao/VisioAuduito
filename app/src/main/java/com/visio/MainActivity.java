@@ -49,7 +49,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
-
+    public static List<com.visio.Zone> zoneProperties;
 
 
     public static Coordinate currentUserCoordinates;
@@ -69,7 +69,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
     public VoiceCommandInput mInputVoiceCommand;
     public String mDestinationZone;
-
+    public static String destinationEnd;
     public static int threshold;
     public static float offset;
 
@@ -92,9 +92,13 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         thisObject = this;
+        FirebaseZoneInfo localFirebase = new FirebaseZoneInfo(this);
+        localFirebase.initZoneInfo();
+        MainActivity.zoneProperties = localFirebase.getAllZones();
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
         setupParams.setPositionUpdateInterval(1000);
@@ -283,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public void onClick(Coordinate coordinate) {
         if(initializedZonesAndPosition) {
             SpeechEngine speechEngine = SpeechEngine.getInstance();
-         //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
+            //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
             mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
@@ -297,6 +301,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     mDestinationZone=inputCommand.get(0);
+                    MainActivity.destinationEnd = mDestinationZone;
                     mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
                 }
@@ -320,7 +325,7 @@ class VoiceCommandInput{
         intentHandle.putExtra(RecognizerIntent.EXTRA_PROMPT,prompt);
         try{
             callingActivity.startActivityForResult(intentHandle,MainActivity.REQ_CODE_SPEECH_INPUT);
-         //   prompt = callingActivity.getApplicationContext().getString(promptID);
+            //   prompt = callingActivity.getApplicationContext().getString(promptID);
         }catch(ActivityNotFoundException e){
             // Toast.makeText(callingActivity,"Speech Input not supported on this device",Toast.LENGTH_LONG).show();
         }
@@ -345,7 +350,7 @@ class VoiceCommandInput{
                     MainActivity.indoorsFragment.getSurfaceState().orientedNaviArrow = true;
                     MainActivity.indoorsFragment.updateSurface();
                     MainActivity.registerForNextChange(new RouterImplementation(arrayList,MainActivity.threshold));
-                   // Log.d("Route",arrayList.toString());
+                    // Log.d("Route",arrayList.toString());
                 }
 
                 @Override
@@ -442,10 +447,27 @@ class RouterImplementation implements RouterInterface{
                 Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
                 speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                makeThreadSleep(100);
+                for(com.visio.Zone localZone : MainActivity.zoneProperties){
+                    if(localZone.getId()==MainActivity.destinationEnd){
+                        speechEngine.speak("The door opens " + localZone.getDirection(), TextToSpeech.QUEUE_ADD,null,"Destination");
+                        if(localZone.getType().toUpperCase()=="Automatic".toUpperCase()){
+
+                        }
+                    }
+                }
                 //MainActivity.inRoutingMode = false;
             }
         }
 
+    }
+
+    public static void makeThreadSleep(int pMilliseconds) {
+        try {
+            Thread.sleep(pMilliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     private double getFinalDirectionAngle(double direction) {
