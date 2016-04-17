@@ -78,7 +78,7 @@
             android:tag="@string/degrees"
             android:paddingBottom="16dp"
             android:paddingTop="16dp"
-            android:max="180"
+            android:max="360"
             android:indeterminate="false"
             android:layout_weight="5"
             />
