@@ -4,24 +4,18 @@ import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.SeekBar;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -34,20 +28,14 @@ import com.customlbs.library.callbacks.ZoneCallback;
 import com.customlbs.library.model.Building;
 import com.customlbs.library.model.Zone;
 import com.customlbs.shared.Coordinate;
-import com.customlbs.surface.library.DefaultSurfacePainterConfiguration;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
-import com.customlbs.surface.library.SurfacePainterConfiguration;
 import com.firebase.client.DataSnapshot;
 import com.firebase.client.Firebase;
 import com.firebase.client.FirebaseError;
 import com.firebase.client.ValueEventListener;
-import com.google.android.gms.appindexing.Action;
-import com.google.android.gms.appindexing.AppIndex;
-import com.google.android.gms.common.api.GoogleApiClient;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -56,15 +44,16 @@ import java.util.List;
 import java.util.ListIterator;
 
 
-public class MainActivity extends AppCompatActivity implements IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener {
+public class MainActivity extends AppCompatActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
     public static String TAG = MainActivity.class.getSimpleName();
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
     public MainActivity thisObject;
-
+    public static List<com.visio.Zone> zoneProperties = null;
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
+
 
 
     public static Coordinate currentUserCoordinates;
@@ -72,9 +61,8 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     public static float currentUserOrientation;
 
     public static List<Zone> zonesList;
-    public static HashMap<String, Coordinate> zoneEntrance;
-    public static HashMap<String, String> zoneType;
-    public static HashMap<String, String> zoneValue;
+    public static HashMap<String,Coordinate> zoneEntrance;
+
     public static boolean inRoutingMode = false;
     private static List<RouterInterface> registeredObjects = new ArrayList<RouterInterface>(); //These objects need to be notified
     //in case of user change of position
@@ -86,24 +74,20 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     public VoiceCommandInput mInputVoiceCommand;
     public String mDestinationZone;
 
-    public static List<com.visio.Zone> zoneProperties = null;
-    /**
-     * ATTENTION: This was auto-generated to implement the App Indexing API.
-     * See https://g.co/AppIndexing/AndroidStudio for more information.
-     */
-    private GoogleApiClient client;
+    public static int threshold;
+    public static float offset;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        getMenuInflater().inflate(R.menu.menu_main,menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
+        switch (item.getItemId()){
             case R.id.action_settings:
-                Intent intent = new Intent(this, SettingsActivity.class);
+                Intent intent = new Intent(this,SettingsActivity.class);
                 startActivity(intent);
                 break;
         }
@@ -115,16 +99,11 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         thisObject = this;
-
-        FirebaseZoneInfo localZoneInfo = new FirebaseZoneInfo(this);
-        localZoneInfo.initZoneInfo();
-
         LocalizationParameters setupParams = new LocalizationParameters();
         setupParams.setPositionCalculationInterval(1000);
         setupParams.setPositionUpdateInterval(1000);
-        setupParams.setTrackingInterval(10);
+        setupParams.setTrackingInterval(1000);
         setupParams.setUseStabilizationFilter(false);
-
         indoorsBuilder = new IndoorsFactory.Builder();
         indoorsBuilder.setContext(this);
         indoorsBuilder.setPassiveServiceCallback(this);
@@ -145,52 +124,28 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
 
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
-
         transaction = getSupportFragmentManager().beginTransaction();
-        transaction.replace(android.R.id.content, indoorsFragment, "indoors");
+        transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
         transaction.commit();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
-
-
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (SpeechEngine.getInstance() != null)
+        if(SpeechEngine.getInstance()!=null)
             SpeechEngine.getInstance().stop();
     }
-
     @Override
-    protected void onResume() {
+    protected void onResume(){
         super.onResume();
         SpeechEngine.createInstance(this);
     }
 
-    protected void onStop() {
+    protected void onStop(){
         super.onStop();
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Main Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://com.visio/http/host/path")
-        );
-        AppIndex.AppIndexApi.end(client, viewAction);
-        if (SpeechEngine.getInstance() != null)
+        if(SpeechEngine.getInstance()!=null)
             SpeechEngine.getInstance().stop();
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.disconnect();
     }
 
     @Override
@@ -199,7 +154,7 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     }
 
     @Override
-    public void onError(IndoorsException e) {
+    public void onError (IndoorsException e){
 
     }
 
@@ -230,13 +185,13 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
         });
     }
 
-    private HashMap<String, Coordinate> getZonesEntrance(List<Zone> zonesList) {
-        HashMap<String, Coordinate> mapZoneToCoordinate = new HashMap<>();
-        for (Zone eachZone : zonesList) {
-            Coordinate newCoordinate = new Coordinate((eachZone.getZonePoints().get(0).x + eachZone.getZonePoints().get(1).x) / 2,
-                    (eachZone.getZonePoints().get(0).y + eachZone.getZonePoints().get(1).y) / 2,
+    private HashMap<String,Coordinate> getZonesEntrance(List<Zone> zonesList) {
+        HashMap<String,Coordinate> mapZoneToCoordinate = new HashMap<>();
+        for(Zone eachZone : zonesList){
+            Coordinate newCoordinate = new Coordinate((eachZone.getZonePoints().get(0).x+eachZone.getZonePoints().get(1).x)/2,
+                    (eachZone.getZonePoints().get(0).y+eachZone.getZonePoints().get(1).y)/2,
                     eachZone.getZonePoints().get(0).z);
-            mapZoneToCoordinate.put(eachZone.getName().toUpperCase(), newCoordinate);
+            mapZoneToCoordinate.put(eachZone.getName().toUpperCase(),newCoordinate);
         }
         return mapZoneToCoordinate;
     }
@@ -249,33 +204,34 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     @Override
     public void positionUpdated(Coordinate coordinate, int i) {
 
-        Log.d(TAG, coordinate.toString());
-        Log.d(TAG, new Float(MainActivity.currentUserOrientation).toString());
+        //Log.d(TAG,coordinate.toString());
+
 
         currentUserCoordinates = coordinate;
         currentAccuracy = i;
+        //currentUserOrientation = indoorsFragment.getSurfaceState().userOrientationDegrees;
 
        /* transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(android.R.id.content,indoorsFragment,"indoors");
         transaction.commit();*/
 
-        if (zonesList != null && !initializedZonesAndPosition) {
+        if(zonesList!=null&&!initializedZonesAndPosition){
             initializedZonesAndPosition = true;
         }
-        if (inRoutingMode)
+        if(inRoutingMode)
             notifyAllObservers();
     }
 
     private void notifyAllObservers() {
-        for (RouterInterface localInterfaceObject : MainActivity.registeredObjects) {
-            localInterfaceObject.getDistance(currentUserCoordinates, currentUserOrientation);
+        for(RouterInterface localInterfaceObject:MainActivity.registeredObjects){
+            localInterfaceObject.getDistance(currentUserCoordinates,currentUserOrientation);
         }
     }
 
     @Override
     public void orientationUpdated(float v) {
-        currentUserOrientation = v;
-        if (zonesList != null && currentUserCoordinates != null && !initializedZonesAndPosition) {
+
+        if(zonesList!=null&&currentUserCoordinates!=null&&!initializedZonesAndPosition){
             initializedZonesAndPosition = true;
         }
     }
@@ -289,14 +245,14 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     public void enteredZones(List<Zone> list) {
 
         List<String> stringList = new ArrayList<>();
-        for (Zone zone : list) {
+        for(Zone zone : list){
             stringList.add(zone.getName());
         }
 
-        if (inRoutingMode) {
-            if (stringList.contains(mDestinationZone)) {
-                inRoutingMode = false;
-                SpeechEngine.getInstance().speak("Destination", SpeechEngine.QUEUE_ADD, null);
+        if(inRoutingMode) {
+            if(stringList.contains( mDestinationZone)){
+                inRoutingMode=false;
+                SpeechEngine.getInstance().speak("Destination",SpeechEngine.QUEUE_ADD,null);
             }
         }
     }
@@ -318,36 +274,37 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
         return currentUserOrientation;
     }
 
-    public static void registerForNextChange(RouterInterface registeringObject) {
+    public static void registerForNextChange(RouterInterface registeringObject){
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
-        registeringObject.getDistance(currentUserCoordinates, currentUserOrientation);
+        registeringObject.getDistance(currentUserCoordinates,currentUserOrientation);
     }
 
 
     @SuppressLint("NewApi")
     @Override
     public void onClick(Coordinate coordinate) {
-        if (initializedZonesAndPosition) {
+        if(initializedZonesAndPosition) {
             SpeechEngine speechEngine = SpeechEngine.getInstance();
-            //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
+         //   speechEngine.speak(getString(R.string.initiateNavigationPrompt),TextToSpeech.QUEUE_FLUSH,null,"prompt");
             if (mInputVoiceCommand == null)
                 mInputVoiceCommand = new VoiceCommandInput(this);
             mInputVoiceCommand.takeSpeechInput(R.string.initiateNavigationPrompt);
         }
     }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == MainActivity.REQ_CODE_SPEECH_INPUT) {
-            if (resultCode == RESULT_OK) {
-                if (data != null) {
+        if(requestCode==MainActivity.REQ_CODE_SPEECH_INPUT){
+            if(resultCode==RESULT_OK){
+                if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    mDestinationZone = inputCommand.get(0);
-                    mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
-
+                    mDestinationZone=inputCommand.get(0);
+                    for(String command : inputCommand) {
+                        zonesList.contains(command);
+                        mInputVoiceCommand.routeToZone(command);
+                    }
                 }
             }
         }
@@ -356,22 +313,8 @@ public class MainActivity extends AppCompatActivity implements IndoorsServiceCal
     @Override
     public void onStart() {
         super.onStart();
-
-        // ATTENTION: This was auto-generated to implement the App Indexing API.
-        // See https://g.co/AppIndexing/AndroidStudio for more information.
-        client.connect();
-        Action viewAction = Action.newAction(
-                Action.TYPE_VIEW, // TODO: choose an action type.
-                "Main Page", // TODO: Define a title for the content shown.
-                // TODO: If you have web page content that matches this app activity's content,
-                // make sure this auto-generated web page URL is correct.
-                // Otherwise, set the URL to null.
-                Uri.parse("http://host/path"),
-                // TODO: Make sure this auto-generated app URL is correct.
-                Uri.parse("android-app://com.visio/http/host/path")
-        );
-        AppIndex.AppIndexApi.start(client, viewAction);
     }
+
 }
 
 class VoiceCommandInput{
@@ -398,19 +341,23 @@ class VoiceCommandInput{
     public void routeToZone(String zoneId){
         Coordinate sourceCoordinate = MainActivity.currentUserCoordinates;
         Coordinate destinationCoordinate;
-        final int threshold=callingActivity.getSharedPreferences("MyPreferences",0).getInt("threshold",100);
+        MainActivity.threshold=callingActivity.getSharedPreferences("MyPreferences",0).getInt("threshold",100);
+        MainActivity.offset=callingActivity.getSharedPreferences("MyPreferences",0).getInt("degrees",225);
         if(MainActivity.zoneEntrance.containsKey(zoneId.toUpperCase())){
             destinationCoordinate = MainActivity.zoneEntrance.get(zoneId.toUpperCase());
             MainActivity.indoorsFragment.getIndoors().getRouteAToB(sourceCoordinate, destinationCoordinate, new RoutingCallback() {
                 @Override
                 @SuppressWarnings("deprication")
                 public void setRoute(ArrayList<Coordinate> arrayList) {
+                    for (Coordinate loc : arrayList) {
+                        //Log.d("Route", loc.toString());
+                    }
                     MainActivity.indoorsFragment.getIndoors().enableRouteSnapping(arrayList);
                     MainActivity.indoorsFragment.getSurfaceState().setRoutingPath(arrayList);
                     MainActivity.indoorsFragment.getSurfaceState().orientedNaviArrow = true;
                     MainActivity.indoorsFragment.updateSurface();
-                    MainActivity.registerForNextChange(new RouterImplementation(arrayList,threshold));
-                    Log.d("Route",arrayList.toString());
+                    MainActivity.registerForNextChange(new RouterImplementation(arrayList,MainActivity.threshold));
+                   // Log.d("Route",arrayList.toString());
                 }
 
                 @Override
@@ -481,32 +428,32 @@ class RouterImplementation implements RouterInterface{
     }
 
 
-
-
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void sayNextRoute(Coordinate userCurrentPosition, float userCurrentOrientation, int nextCoordinateIndex) {
 
         SpeechEngine speechEngine = SpeechEngine.getInstance();
 
-
         if(!visited[nextCoordinateIndex-1]) {
             visited[nextCoordinateIndex-1] = true;
+            double distance = calculateDistance(nextCoordinate, userCurrentPosition);
             double direction = getDirection(userCurrentPosition, nextCoordinate, userCurrentOrientation);
             double finalDirection = getFinalDirectionAngle(direction);
             String turnDirection = getTurnDirection(finalDirection);
+            Log.d("PtNext", nextCoordinate.toString());
+            Log.d("PtUserLoc",userCurrentPosition.toString());
+            Log.d("PtOrientation",String.valueOf(userCurrentOrientation));
+
             if (nextCoordinateIndex != this.routerCoordinate.size() - 1) {
 
-
-
-                Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(direction, turnDirection));
+                Log.d(MainActivity.TAG + " route", turnDirection == null ? "Null" : enhanceDirection(finalDirection, turnDirection,(int)distance));
                 //System.out.println(enhanceDirection(finalDirection,turnDirection)+" "+finalDirection);
 
-                speechEngine.speak(enhanceDirection(direction, turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Direction");
+                speechEngine.speak(enhanceDirection(finalDirection, turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Direction");
             } else {
 
-                Log.d(MainActivity.TAG + " route", "Your destination is on your " + turnDirection);
+                Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
-                speechEngine.getInstance().speak("Your destination is on your " + turnDirection, TextToSpeech.QUEUE_FLUSH, null, "Destination");
+                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection, turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 //MainActivity.inRoutingMode = false;
             }
         }
@@ -515,48 +462,82 @@ class RouterImplementation implements RouterInterface{
 
     private double getFinalDirectionAngle(double direction) {
         boolean positive;
+        Log.d("Raw direction", String.valueOf(direction));
         boolean invert = Math.abs(direction)>180?true:false;
         double actualTurnAngle = direction;
         if(invert){
-            double howMuchMoreThan180 = Math.abs(direction) - 180;
-            actualTurnAngle = 180 - howMuchMoreThan180;
+
+            actualTurnAngle = 360 - Math.abs(actualTurnAngle);
 
             int sign = (int)(direction / (Math.abs(direction)));
             actualTurnAngle = (sign * -1) * actualTurnAngle;
         }
 
         return actualTurnAngle;
+
     }
 
-    public String enhanceDirection(double direction, String turnDirection){
+    public String enhanceDestination(double direction, String turnDirection, int distance){
         float modDirection = (float) Math.abs(direction);
+        Log.d("modDirection",String.valueOf(modDirection));
+        if(modDirection < 45.0f){
+            return "in slightly to the " + turnDirection + " ahead of you";
+        }else if(modDirection >=45.0f && modDirection < 90.0f){
+            return "to the " + turnDirection + " of you";
+        }else if(modDirection >= 90.0f && modDirection <=180.0f){
+            return "behind you on the " + turnDirection ;
+        }else{
+            return "Direction error";
+        }
+    }
+
+    public String enhanceDirection(double direction, String turnDirection, int distance){
+        float modDirection = (float) Math.abs(direction);
+
+        Log.d("Direction",String.valueOf(modDirection)+" "+turnDirection);
+
         if(modDirection<22.49f){
             return "GO STRAIGHT";
         }else if(modDirection>=22.50f && modDirection <= 44.9f){
-            return "TAKE SLIGHT " + turnDirection + " TURN";
+            return "TAKE SLIGHT " + turnDirection + " TURN for "+distance;
         }else if(modDirection>=45f && modDirection<=134.9f){
-            return "TAKE " + turnDirection + " TURN";
+            return "TAKE " + turnDirection + " TURN for" + distance;
         }else if(modDirection>=135.0f && modDirection <=147.49f){
-            return "TAKE HARD " + turnDirection + " TURN";
-        }else{
-            return "TURN BACK";
-        }
+            return "TAKE HARD " + turnDirection + " TURN for "+ distance;
+        }else if(modDirection >=148 && modDirection <=180){
+            return "TURN BACK for "+distance;
+        }else return "Direction error";
     }
     public String getTurnDirection(double actualTurnAngle) {
         boolean positive;
         positive = actualTurnAngle>0?true:false;
 
-        return positive?"LEFT":"RIGHT";
+        return positive?"RIGHT":"LEFT";
 
     }
 
+    public float updateCurrentOrientation() throws InterruptedException {
+        float currentOrientation = 0;
+        for(int i=0;i<10;i++){
+            currentOrientation=MainActivity.indoorsFragment.getSurfaceState().userOrientationDegrees;
+            Thread.sleep(5);
+        }
+        return currentOrientation;
+    }
+
     public double getDirection(Coordinate userCurrentPosition, Coordinate nextPosition, float userCurrentOrientation){
-        int dx = nextCoordinate.x - userCurrentPosition.x ;
-        int dy = nextCoordinate.y - userCurrentPosition.y ;
+        try {
+            userCurrentOrientation=updateCurrentOrientation();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        float correctedOrientation=(userCurrentOrientation-MainActivity.offset+360)%360;
+        int dx =  nextCoordinate.x - userCurrentPosition.x;
+        int dy =   nextCoordinate.y - userCurrentPosition.y;
         double bearing = (180/Math.PI) * Math.atan2(dx,dy);
         bearing = bearing>0?bearing:360-Math.abs(bearing);
-
-        return (userCurrentOrientation-bearing);
+        return (correctedOrientation-bearing);
 
     }
 
@@ -611,7 +592,7 @@ class FirebaseZoneInfo{
             public void onDataChange(DataSnapshot dataSnapshot) {
                 valuesFromFirebase = dataSnapshot.getValue(Zones.class);
                 MainActivity.zoneProperties = getAllZones();
-                fillZoneType(MainActivity.zoneProperties,MainActivity.zonesList);
+
             }
 
             @Override
