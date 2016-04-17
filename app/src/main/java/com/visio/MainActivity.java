@@ -16,7 +16,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.animation.RotateAnimation;
 
 import com.customlbs.library.IndoorsException;
 import com.customlbs.library.IndoorsFactory;
@@ -32,10 +31,6 @@ import com.customlbs.shared.Coordinate;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
-import com.firebase.client.DataSnapshot;
-import com.firebase.client.Firebase;
-import com.firebase.client.FirebaseError;
-import com.firebase.client.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -50,11 +45,11 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
     public MainActivity thisObject;
-    public static List<com.visio.Zone> zoneProperties = null;
+
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
-    public static Zone destinationZone;
+
 
 
     public static Coordinate currentUserCoordinates;
@@ -73,11 +68,11 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     public boolean initializedZonesAndPosition = false; //This needs to be true before we do anything/
 
     public VoiceCommandInput mInputVoiceCommand;
-    public static String mDestinationZone;
+    public String mDestinationZone;
 
     public static int threshold;
     public static float offset;
-    public static ArrayList<Coordinate> route = null;
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main,menu);
@@ -279,7 +274,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
         registeredObjects.add(registeringObject);
 
         inRoutingMode = true;
-        registeringObject.getDistance(MainActivity.route.get(0),currentUserOrientation);
+        registeringObject.getDistance(currentUserCoordinates,currentUserOrientation);
     }
 
 
@@ -302,20 +297,12 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
                 if(data!=null){
                     List<String> inputCommand = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     mDestinationZone=inputCommand.get(0);
-
-
-                    mInputVoiceCommand.routeToZone(mDestinationZone);
+                    mInputVoiceCommand.routeToZone(inputCommand.get(0).toUpperCase());
 
                 }
             }
         }
     }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-    }
-
 }
 
 class VoiceCommandInput{
@@ -454,21 +441,7 @@ class RouterImplementation implements RouterInterface{
 
                 Log.d(MainActivity.TAG + " last", "Your destination is on your " + turnDirection+direction);
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
-
-                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection, turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
-                try{
-                    Thread.sleep(1000);
-                }catch(InterruptedException e){
-                    e.printStackTrace();
-                }
-                for(com.visio.Zone zone : MainActivity.zoneProperties){
-                    if(zone.getId()==MainActivity.mDestinationZone){
-                        speechEngine.speak("The door opens " + zone.getDirection(), TextToSpeech.QUEUE_FLUSH, null, "Destination");
-                    }
-                    if(zone.getType().toUpperCase()=="AUTOMATIC"){
-                        //Rohit insert code here.
-                    }
-                }
+                speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection,(int)distance), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 //MainActivity.inRoutingMode = false;
             }
         }
@@ -592,41 +565,3 @@ class RouterImplementation implements RouterInterface{
     }
 
 }
-
-class FirebaseZoneInfo{
-    Activity callingActivity;
-    Zones valuesFromFirebase;
-    public FirebaseZoneInfo(Activity callingActivity) {
-        this.callingActivity = callingActivity;
-        Firebase.setAndroidContext(callingActivity);
-    }
-    public void initZoneInfo(){
-        Firebase localFirebaseReference = new Firebase("https://visioaduito.firebaseio.com/");
-        localFirebaseReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                valuesFromFirebase = dataSnapshot.getValue(Zones.class);
-                MainActivity.zoneProperties = getAllZones();
-
-            }
-
-            @Override
-            public void onCancelled(FirebaseError firebaseError) {
-
-            }
-        });
-
-    }
-
-    public void fillZoneType(List<com.visio.Zone> zoneProperties, List<Zone> zoneList){
-        for(Zone eachZone: zoneList){
-
-        }
-    }
-
-    public List<com.visio.Zone> getAllZones(){
-        return valuesFromFirebase.getZones();
-    }
-
-}
-
