@@ -6,6 +6,8 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
@@ -31,6 +33,15 @@ import com.customlbs.shared.Coordinate;
 import com.customlbs.surface.library.IndoorsSurface;
 import com.customlbs.surface.library.IndoorsSurfaceFactory;
 import com.customlbs.surface.library.IndoorsSurfaceFragment;
+import com.google.android.apps.weave.apis.appaccess.AppAccessRequest;
+import com.google.android.apps.weave.apis.data.Command;
+import com.google.android.apps.weave.apis.data.CommandResult;
+import com.google.android.apps.weave.apis.data.DeviceState;
+import com.google.android.apps.weave.apis.data.WeaveApiClient;
+import com.google.android.apps.weave.apis.data.WeaveDevice;
+import com.google.android.apps.weave.apis.data.responses.Response;
+import com.google.android.apps.weave.apis.data.responses.ResultCode;
+import com.google.android.apps.weave.apis.device.DeviceLoaderCallbacks;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,14 +49,16 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity implements  IndoorsServiceCallback, IndoorsLocationListener, IndoorsSurface.OnSurfaceClickListener{
     public static String TAG = MainActivity.class.getSimpleName();
     public static final String extraName = "BUILDINGID";
     public final static int REQ_CODE_SPEECH_INPUT = 100;
-    public MainActivity thisObject;
 
+
+    Weave weave = new Weave();
     public static FragmentTransaction transaction;
     public static IndoorsSurfaceFragment indoorsFragment;
     public static IndoorsFactory.Builder indoorsBuilder;
@@ -72,6 +85,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
     public static int threshold;
     public static float offset;
+    public static MainActivity thisObject;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -118,11 +132,13 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
 
         SpeechEngine.createInstance(this);
 
+
         indoorsFragment = indoorsSurface.build();
         indoorsFragment.registerOnSurfaceClickListener(this);
         transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.wrapper, indoorsFragment, "indoors");
         transaction.commit();
+
 
     }
 
@@ -136,6 +152,7 @@ public class MainActivity extends AppCompatActivity implements  IndoorsServiceCa
     protected void onResume(){
         super.onResume();
         SpeechEngine.createInstance(this);
+
     }
 
     protected void onStop(){
@@ -450,6 +467,8 @@ class RouterImplementation implements RouterInterface{
                 //System.out.println("Your destination is on your " + turnDirection +" "+finalDirection);
                 speechEngine.speak("Your destination is " + enhanceDestination(finalDirection,turnDirection), TextToSpeech.QUEUE_FLUSH, null, "Destination");
                 //MainActivity.inRoutingMode = false;
+                MainActivity.thisObject.weave.startDiscovery();
+
             }
         }
 
@@ -575,6 +594,241 @@ class RouterImplementation implements RouterInterface{
         double dx = Math.abs(currentPosition.x - targetPosition.x);
         double dy = Math.abs( targetPosition.y - currentPosition.y);
         return Math.sqrt(dy+dx);
+    }
+
+}
+
+class Weave{
+
+    //private Activity callingActivity;
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+
+        switch (requestCode) {
+            case 0: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    //initializeUi();
+                }
+                return;
+            }
+        }
+    }
+
+    public void requestDeviceAccess() {
+
+        Log.d("edison ", "requestDevice Access");
+        AppAccessRequest request = new AppAccessRequest.Builder(
+                AppAccessRequest.APP_ACCESS_ROLE_USER,
+                "developmentBoard", "465320465428")
+                .build();
+
+        Response<Intent> accessResponse = com.google.android.apps.weave.framework.apis.Weave
+                .APP_ACCESS_API.getRequestAccessIntent(mApiClient,
+                        request);
+        if (accessResponse.isSuccess()) {
+            MainActivity.thisObject.startActivityForResult(accessResponse.getSuccess(), 1);
+        } else if (accessResponse.getError().getErrorCode() == ResultCode.RESOLUTION_REQUIRED) {
+            // This is usually when the Weave Management app is
+            // not installed. Firing the resolution Intent will
+            // send the user to the Weave entry in Google Play Store.
+            MainActivity.thisObject.startActivityForResult(accessResponse.getError()
+                    .getResolutionIntent(), 2);
+        } else {
+            Log.e("codelab", "Could not create RequestAccessIntent. " +
+                    "Error: " + accessResponse.getError());
+        }
+    }
+
+    private WeaveDevice mDevice;
+    private WeaveApiClient mApiClient;
+    private DeviceLoaderCallbacks mDiscoveryListener = new DeviceLoaderCallbacks() {
+        @Override
+        public void onDevicesFound(WeaveDevice[] weaveDevices) {
+            if (weaveDevices.length > 0) {
+                // For simplicity sake, use the first device found:
+                mDevice = weaveDevices[0];
+                Log.i("codelab", mDevice.getName() + " found");
+                stopDiscovery();
+                getInitialLightStates(mDevice);
+            }
+        }
+
+        @Override
+        public void onDevicesLost(WeaveDevice[] weaveDevices) {
+            Log.i("codelab", "Lost Device(s)!");
+            for (WeaveDevice device : weaveDevices) {
+                if(mDevice != null && mDevice.getId().equals(device.getId())) {
+                    mDevice = null;
+                }
+            }
+        }
+    };
+
+
+    /**
+     * Generates an Api client instance, sets up a listener to react to devices being either
+     * discovered or lost.
+     */
+
+    public void initializeApiClient() {
+        Log.d("Inside Edison ","Initialiaze api");
+        // Initialize the actual API client
+        mApiClient = new WeaveApiClient(MainActivity.thisObject);
+        // In a real world app, only request device access
+        // when the user requests.
+        requestDeviceAccess();
+    }
+
+
+    /** Begins a scan for Weave-accessible devices. Searches for both cloud devices associated with
+     * the user's account, and provisioned weave devices sitting on the same network.
+     */
+    public void startDiscovery() {
+        com.google.android.apps.weave.framework.apis.Weave.DEVICE_API.startLoading(mApiClient, mDiscoveryListener);
+    }
+
+    /**
+     * Stops device scan
+     */
+    public void stopDiscovery() {
+        com.google.android.apps.weave.framework.apis.Weave.DEVICE_API.stopLoading(mApiClient, mDiscoveryListener);
+    }
+
+
+
+/** Begins a scan for Weave-accessible devices. Searches for both cloud devices associated with
+ * the user's account, and provisioned weave devices sitting on the same network.
+ *//*
+*/
+/*
+    private void startDiscovery() {
+        com.google.android.apps.weave.framework.apis.Weave.DEVICE_API.startLoading(mApiClient, mDiscoveryListener);
+    }
+
+    *//*
+*/
+    /**
+     * Stops device scan
+     *//*
+*/
+/*
+    private void stopDiscovery() {
+        com.google.android.apps.weave.framework.apis.Weave.DEVICE_API.stopLoading(mApiClient, mDiscoveryListener);
+    }
+
+
+    *//*
+*/
+/*@Override
+    public void onResume() {
+        super.onResume();
+        Log.d("edison ", "onResume");
+        startDiscovery();
+    }
+
+    @Override
+    public void onPause() {
+        Log.d("edison ", "onPause");
+        stopDiscovery();
+        super.onPause();
+    }*//*
+*/
+
+
+    private void getInitialLightStates(final WeaveDevice device) {
+        // Clear current switches, if any.
+        // ((ViewGroup) getActivity().getView()).removeAllViews();
+
+        Log.d("edison ", "geInitialLightStates");
+
+        // Network call, punt off the main thread.
+        new AsyncTask<Void, Void, Response<DeviceState>>() {
+
+            @Override
+            protected Response<DeviceState> doInBackground(Void... params) {
+                if (device == null) {
+                    return null;
+                }
+                return com.google.android.apps.weave.framework.apis.Weave.COMMAND_API.getState(mApiClient, device.getId());
+            }
+
+            @Override
+            protected void onPostExecute(Response<DeviceState> result) {
+                super.onPostExecute(result);
+                if (result != null) {
+                    if (!result.isSuccess() || result.getError() != null) {
+                        Log.e("codelab", "Failure querying device state: " + result.getError());
+                    } else {
+                        Map<String, Object> state = (Map<String, Object>)
+                                result.getSuccess().getStateValue("_ledflasher");
+                        if (state == null) {
+                            Log.e("codelab", "Device does not contain a _ledflasher state trait!");
+                        } else {
+                            Log.i("codelab", "Success querying device state! Populating now.");
+
+                            ArrayList<Boolean> ledStates = (ArrayList<Boolean>) state.get("_leds");
+
+                            // Here you'll be adding UI switches later on. For now just log the state
+                            // of each LED to verify things work.
+                            Log.d("edison ", "setting light state now");
+                            setLightState(1,true);
+                            try{
+                                Thread.sleep(30000);
+                            }catch(Exception e){
+                                e.printStackTrace();
+                            }
+                            setLightState(1,false);
+                        }
+                    }
+                }
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    public Command getSetLightStateCommand(int ledIndex, boolean lightOn) {
+        Log.d("edison", "getSetLightStateCommand");
+        HashMap<String, Object> commandParams = new HashMap<>();
+        commandParams.put("_led", ledIndex);
+        commandParams.put("_on", lightOn);
+        return new Command()
+                .setName("_ledflasher._set")
+                .setParameters(commandParams);
+    }
+
+    /**
+     * Sets the state of a single LED
+     * @param ledIndex The index of the LED to adjust
+     * @param lightState Whether the LED should be "on" or not.
+     */
+
+    public void setLightState(final int ledIndex, final boolean lightState) {
+        // Network call, punt off the main thread.
+
+        Log.d("edison ", "setLightStates");
+
+
+        new AsyncTask<Void, Void, Response<CommandResult>>() {
+
+            @Override
+            protected Response<CommandResult> doInBackground(Void... params) {
+                Command command = getSetLightStateCommand(ledIndex, lightState);
+                return com.google.android.apps.weave.framework.apis.Weave.COMMAND_API.execute(
+                        mApiClient, mDevice.getId(), command);
+            }
+
+            @Override
+            protected void onPostExecute(Response<CommandResult> result) {
+                super.onPostExecute(result);
+                if (result.isSuccess()) {
+                    Log.i("codelab", "Success setting LED!");
+                } else {
+                    Log.e("codelab", "Failure setting LED: " +
+                            result.getError());
+                }
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
 }
