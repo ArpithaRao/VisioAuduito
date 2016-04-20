@@ -30,6 +30,9 @@ public class LauncherActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        /*Log.d("edison ", "calling new intent");
+        Intent i = new Intent(this, EdisonLauncher.class);
+        startActivity(i);*/
         object = this;
         setContentView(R.layout.activity_main);
         Toolbar myToolbar = (Toolbar) findViewById(R.id.application_toolbar);
@@ -76,7 +79,7 @@ public class LauncherActivity
                         @Override
                         public void onResult(@NonNull Status status) {
                             if(status.isSuccess()){
-                                Log.d(TAG,"Subscribed");
+                                Log.d(TAG, "Subscribed");
                             }else{
                                 Log.d(TAG,"Subscription Failed");
                                 handleFailure(status);

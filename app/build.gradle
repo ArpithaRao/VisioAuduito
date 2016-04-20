@@ -5,7 +5,7 @@ android {
         config {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-            storeFile file('C:/Users/Ajinkya/Documents/Visio/debug.keystore')
+            storeFile file('C:/Users/Pratyoush/Desktop/integrated/visio/debug.keystore')
             storePassword 'android'
         }
     }
@@ -27,15 +27,22 @@ android {
             signingConfig signingConfigs.config
         }
     }
+    packagingOptions{
+        pickFirst 'META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.properties'
+        pickFirst 'META-INF/services/com.fasterxml.jackson.core.JsonFactory'
+        pickFirst 'META-INF/maven/com.fasterxml.jackson.core/jackson-core/pom.xml'
+    }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     compile files('libs/indoors-library-surface.jar')
-    compile 'com.android.support:appcompat-v7:23.2.1'
+    compile files('libs/weave_android_lib.jar')
+    compile 'com.android.support:appcompat-v7:23.3.0'
     compile 'com.google.android.gms:play-services-nearby:8.4.0'
-    compile 'com.android.support:design:23.2.1'
-    compile 'com.android.support:support-v4:23.2.1'
-    compile 'com.android.support:appcompat-v7:24.0.0-alpha1'
+    compile 'com.android.support:design:23.3.0'
+    compile 'com.android.support:support-v4:23.3.0'
+    compile files ('libs/firebase-client-android-2.5.2.jar')
+
 }
