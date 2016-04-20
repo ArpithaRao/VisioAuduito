@@ -294,8 +294,6 @@ public class EdisonLauncher extends AppCompatActivity {
                 .setParameters(commandParams);
     }
 
-
-
     /**
      * Sets the state of a single LED
      * @param ledIndex The index of the LED to adjust
