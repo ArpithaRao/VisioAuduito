@@ -10,6 +10,24 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+
+    <!-- Allows applications to read the sync stats -->
+    <uses-permission android:name="android.permission.READ_SYNC_STATS" />
+    <!-- Allows an application to request authtokens from the AccountManager -->
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <!-- Allows an application to read sync settings -->
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <!-- Allows applications to write the sync settings -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Location permission is required for wifi scanning, which is used during the device scan. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Read Contacts is temporarily required. A new version of the Weave library will not require it anymore -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
 
     <application
         android:allowBackup="true"
@@ -35,6 +53,24 @@
             android:process=":remote" />
 
         <activity android:name=".SettingsActivity"></activity>
+
+        <provider
+            android:name="com.google.android.apps.weave.gcd.db.GcdContentProvider"
+            android:authorities="com.weaveeap.authority"
+            android:exported="false" />
+
+        <service
+            android:name="com.google.android.apps.weave.gcd.sync.GcdSyncService"
+            android:exported="true"
+            android:label="GCD sync service" >
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
     </application>
 
 </manifest>

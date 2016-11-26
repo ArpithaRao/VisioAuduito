@@ -5,9 +5,15 @@ android {
         config {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
-            storeFile file('C:/Users/Ajinkya/Documents/Visio/debug.keystore')
+            storeFile file('F:/AndroidStudioProjects/visio/debug.keystore')
             storePassword 'android'
         }
+    }
+
+    packagingOptions{
+        pickFirst 'META-INF/liense.txt'
+        pickFirst 'META-INF/NOTICE'
+        pickFirst 'META-INF/LICENSE'
     }
     compileSdkVersion 23
     buildToolsVersion "23.0.2"
@@ -37,5 +43,6 @@ dependencies {
     compile 'com.google.android.gms:play-services-nearby:8.4.0'
     compile 'com.android.support:design:23.2.1'
     compile 'com.android.support:support-v4:23.2.1'
+    compile files('libs/weave_android_lib.jar')
     compile 'com.android.support:appcompat-v7:24.0.0-alpha1'
 }
